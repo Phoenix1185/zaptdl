@@ -25,6 +25,12 @@ cd zaptdl && npm install
 cp .env.example .env  # fill your values
 pm2 start bot.js --name zaptdl
 
+## Docs
+- [DEPLOY.md](DEPLOY.md) — full setup: bot + Telegram Bot API server (2GB uploads), cookies, commands
+- [HOSTING.md](HOSTING.md) — self-host guide: requirements, clone/install, required credits
+- [SECURITY.md](SECURITY.md) — vulnerability reporting
+- [LICENSE](LICENSE) — MIT
+
 ## Try it
 Open [@zaptdl_bot](https://t.me/zaptdl_bot) and paste a link.
 
