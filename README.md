@@ -64,5 +64,18 @@ Open [@zaptdl_bot](https://t.me/zaptdl_bot) and paste a link.
 ## Contributing
 PRs are welcome — fork, branch, commit, open a pull request. For bugs, open an issue with the log line and steps to reproduce.
 
+
+## Support the project ☕
+
+Zapt is free and open source. If it saves you time, buy the dev a cup of tea 🙏
+
+**EVM wallet (ETH, BNB, USDT, USDC and any EVM chain):**
+
+```
+0x58A07f2Ef69a4d7a0C20c0C6B079f059fdE2F669
+```
+
+Every donation goes straight into server + Bot API hosting costs. Thank you 🤝
+
 ## License
 MIT
