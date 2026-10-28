@@ -48,6 +48,7 @@ The bot comes online immediately. For 2GB uploads, first set up the local Bot AP
 
 ## Docs
 - [DEPLOY.md](DEPLOY.md) — full setup: bot + Telegram Bot API server (2GB uploads), cookies, bot commands
+- [COOKIES.md](COOKIES.md) — how to export browser cookies and add them (fixes YouTube bot-check + age-restricted)
 - [HOSTING.md](HOSTING.md) — self-host guide: requirements, clone/install, required credits
 - [SECURITY.md](SECURITY.md) — vulnerability reporting
 - [LICENSE](LICENSE) — MIT
