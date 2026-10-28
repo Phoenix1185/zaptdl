@@ -3,5 +3,4 @@ yt.cookies.txt
 *.cookies.txt
 data.json
 node_modules/
-brand/*.mp4
 *.bak-*
