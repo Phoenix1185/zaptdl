@@ -54,6 +54,7 @@ The bot comes online immediately. For 2GB uploads, first set up the local Bot AP
 - [DEPLOY.md](DEPLOY.md) — full setup: bot + Telegram Bot API server (2GB uploads), cookies, bot commands
 - [COOKIES.md](COOKIES.md) — how to export browser cookies and add them (fixes YouTube bot-check + age-restricted)
 - [HOSTING.md](HOSTING.md) — self-host guide: requirements, clone/install, required credits
+- [Wiki](https://github.com/Phoenix1185/zaptdl/wiki) — Setup, Cookies, Premium, Troubleshooting, FAQ, Admin Guide
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to fork, branch and open PRs
 - [Discussions](https://github.com/Phoenix1185/zaptdl/discussions) — questions, ideas, show-off your deploy
 - [SECURITY.md](SECURITY.md) — vulnerability reporting
