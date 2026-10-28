@@ -2,6 +2,8 @@
 
 Fast Telegram media downloader bot — paste a link, get the video.
 
+**Live bot:** [@zaptdl_bot](https://t.me/zaptdl_bot) on Telegram right now.
+
 Supports YouTube, Instagram, TikTok, Facebook, X, Twitch, Reddit, SoundCloud, Vimeo and 1000+ more sites via yt-dlp.
 
 ## Features
