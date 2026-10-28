@@ -55,6 +55,7 @@ The bot comes online immediately. For 2GB uploads, first set up the local Bot AP
 - [COOKIES.md](COOKIES.md) — how to export browser cookies and add them (fixes YouTube bot-check + age-restricted)
 - [HOSTING.md](HOSTING.md) — self-host guide: requirements, clone/install, required credits
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to fork, branch and open PRs
+- [Discussions](https://github.com/Phoenix1185/zaptdl/discussions) — questions, ideas, show-off your deploy
 - [SECURITY.md](SECURITY.md) — vulnerability reporting
 - [LICENSE](LICENSE) — MIT
 
