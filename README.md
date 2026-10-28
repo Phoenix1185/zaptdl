@@ -1,5 +1,7 @@
 # Zapt ⚡
 
+![license](https://img.shields.io/badge/license-MIT-green) ![node](https://img.shields.io/badge/node-18%2B-blue) ![platform](https://img.shields.io/badge/platform-Telegram-blue) ![release](https://img.shields.io/github/v/release/Phoenix1185/zaptdl) ![stars](https://img.shields.io/github/stars/Phoenix1185/zaptdl?style=social)
+
 Fast Telegram media downloader bot — paste a link, get the video.
 
 **Live bot:** [@zaptdl_bot](https://t.me/zaptdl_bot) · **Landing page:** [phoenix1185.github.io/zaptdl](https://phoenix1185.github.io/zaptdl/)
