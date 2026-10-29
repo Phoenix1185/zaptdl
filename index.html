@@ -1,74 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Zapt ⚡ — Fast Telegram Media Downloader Bot</title>
-<meta name="description" content="Open-source Telegram media downloader bot. Paste a link, get the video. YouTube, TikTok, Instagram, Facebook, X, 1000+ sites via yt-dlp. 2GB uploads, live progress, premium via Stars, 18 languages.">
-<meta property="og:title" content="Zapt ⚡ — Telegram Media Downloader Bot">
-<meta property="og:description" content="Paste a link, get the video. 1000+ sites, 2GB uploads, open source.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://phoenix1185.github.io/zaptdl/">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Zapt — Telegram Media Downloader Bot">
-<meta name="twitter:description" content="Paste a link, get the video. 1000+ sites, 2GB uploads, open source.">
-<meta property="og:image" content="https://phoenix1185.github.io/zaptdl/assets/zapt.gif">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zapt ⚡ Fast Telegram Media Downloader Bot — SD/HD/4K</title>
+<meta name="description" content="Zapt is a free, open-source Telegram media downloader bot. Download videos from YouTube, TikTok, Instagram, Twitter/X and more in SD, HD or 4K. Premium via Telegram Stars. Self-host in minutes.">
+<meta name="keywords" content="telegram bot, video downloader, youtube downloader, tiktok, instagram, yt-dlp, media downloader, open source, 4k downloader">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="https://phoenix1185.github.io/zaptdl/">
-<meta name="keywords" content="telegram downloader, media downloader bot, youtube downloader, tiktok downloader, instagram downloader, yt-dlp bot, telegram video downloader, free downloader bot, open source downloader">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Zapt ⚡ Fast Telegram Media Downloader Bot">
+<meta property="og:description" content="Download videos from YouTube, TikTok, Instagram, Twitter/X and more in SD, HD or 4K — right inside Telegram. Free and open source.">
+<meta property="og:url" content="https://phoenix1185.github.io/zaptdl/">
+<meta property="og:image" content="https://opengraph.githubassets.com/1/Phoenix1185/zaptdl">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Zapt ⚡ Fast Telegram Media Downloader Bot">
+<meta name="twitter:description" content="SD/HD/4K downloads inside Telegram. Free and open source.">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Zapt","applicationCategory":"UtilitiesApplication","operatingSystem":"Linux, self-hosted","description":"Open-source Telegram media downloader bot for YouTube, TikTok, Instagram and 1000+ sites","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://phoenix1185.github.io/zaptdl/"}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Zapt","applicationCategory":"MultimediaApplication","operatingSystem":"Telegram Bot","url":"https://phoenix1185.github.io/zaptdl/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Fast Telegram media downloader bot. SD/HD/4K downloads from YouTube, TikTok, Instagram, Twitter/X and more. Open source, premium via Telegram Stars.","aggregateRating":{"@type":"AggregateRating","ratingValue":"5","ratingCount":"1"}}
 </script>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;background:#0b0e14;color:#e6e6e6;line-height:1.6}
-.wrap{max-width:820px;margin:0 auto;padding:64px 24px}
-.badge{display:inline-block;background:#161b26;border:1px solid #2a3040;color:#9aa0ab;border-radius:999px;padding:4px 14px;font-size:13px;margin-bottom:20px}
-h1{font-size:44px;margin:0 0 8px;line-height:1.15}
-h1 span{color:#7c5cff}
-.tag{font-size:18px;color:#9aa0ab;margin:0 0 28px}
-.btns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px}
-.btn{padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px}
-.btn-p{background:#7c5cff;color:#fff}
-.btn-s{background:#161b26;color:#e6e6e6;border:1px solid #2a3040}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:44px}
-.card{background:#12161f;border:1px solid #1f2532;border-radius:12px;padding:18px}
-.card b{display:block;margin-bottom:6px;font-size:15px}
-.card p{margin:0;color:#9aa0ab;font-size:14px}
-h2{font-size:20px;margin:32px 0 12px}
-code{background:#161b26;padding:2px 8px;border-radius:6px;color:#9fe8a9;font-size:14px}
-pre{background:#12161f;border:1px solid #1f2532;border-radius:12px;padding:18px;overflow-x:auto;color:#c8cdd6;font-size:14px}
-footer{margin-top:48px;color:#5c6470;font-size:14px}
-a{color:#7c5cff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;line-height:1.6}
+.hero{text-align:center;padding:90px 20px 60px;background:radial-gradient(ellipse at top,#1a2332 0%,#0d1117 70%)}
+.hero .logo{font-size:64px}
+h1{font-size:clamp(2rem,6vw,3.2rem);margin:12px 0}
+.hero p{color:#8b949e;font-size:1.15rem;max-width:620px;margin:0 auto 32px}
+.btn{display:inline-block;padding:14px 32px;border-radius:12px;font-weight:600;text-decoration:none;margin:6px;font-size:1.05rem;transition:transform .15s}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:#2ea043;color:#fff}
+.btn-ghost{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+.features{max-width:1000px;margin:0 auto;padding:50px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:26px}
+.card h3{margin-bottom:8px;font-size:1.1rem}
+.card p{color:#8b949e;font-size:.95rem}
+.footer{text-align:center;padding:40px 20px;color:#8b949e;font-size:.9rem}
+.footer a{color:#58a6ff;text-decoration:none}
 </style>
 </head>
-<body><div class="wrap">
-<div class="badge">⚡ open source · MIT license</div>
-<img src="assets/zapt.gif" alt="Zapt" width="300" style="display:block;margin:0 0 18px">
-<h1>Zapt<span>.</span> paste a link, get the video.</h1>
-<p class="tag">Fast Telegram media downloader bot — YouTube, TikTok, Instagram, Facebook, X, Twitch, Reddit, SoundCloud and 1000+ more via yt-dlp.</p>
-<div class="btns">
-<a class="btn btn-p" href="https://t.me/zaptdl_bot">Try the live bot</a>
-<a class="btn btn-s" href="https://github.com/Phoenix1185/zaptdl">View on GitHub</a>
+<body>
+<div class="hero">
+<div class="logo">⚡</div>
+<h1>Zapt</h1>
+<p>The fast Telegram media downloader bot. Send a link, get your video — SD, HD or 4K, right in your chat.</p>
+<a class="btn btn-primary" href="https://t.me/zaptdl_bot">▶ Open Zapt on Telegram</a>
+<a class="btn btn-ghost" href="https://github.com/Phoenix1185/zaptdl">★ View on GitHub</a>
 </div>
-<div class="grid">
-<div class="card"><b>🎬 Quality picker</b><p>SD / HD for every download, premium unlocks 4K.</p></div>
-<div class="card"><b>📊 Live queue</b><p>Real progress bar (1-100%) on an animated brand GIF.</p></div>
-<div class="card"><b>📦 2GB uploads</b><p>Local Telegram Bot API server for huge files.</p></div>
-<div class="card"><b>👑 Premium</b><p>Telegram Stars: skip queue, 10 slots, 2GB, 60min window.</p></div>
-<div class="card"><b>🌐 18 languages</b><p>Fully localized menus, about, privacy, status messages.</p></div>
-<div class="card"><b>🔒 Privacy-first</b><p>Minimal data retention, documented in /privacy.</p></div>
-
-<div class="card" style="border-color:#7c5cff55"><b>☕ Buy the dev a tea</b><p>EVM wallet (ETH, USDT, USDC, any EVM chain):<br><code style="font-size:12px;word-break:break-all">0x58A07f2Ef69a4d7a0C20c0C6B079f059fdE2F669</code></p></div>
+<div class="features">
+<div class="card"><h3>🎬 SD / HD / 4K</h3><p>Pick your quality. 4K when the source has it, best available when it doesn't.</p></div>
+<div class="card"><h3>🌐 All platforms</h3><p>YouTube, TikTok, Instagram, Twitter/X, Facebook and more.</p></div>
+<div class="card"><h3>⭐ Premium via Telegram Stars</h3><p>Queue priority, 10 parallel slots and 4K unlocks. Weekly, monthly or 3-month.</p></div>
+<div class="card"><h3>🌍 18 languages</h3><p>The bot speaks your language out of the box.</p></div>
+<div class="card"><h3>🛠 Self-host</h3><p>Full deploy docs, runs on any small VPS. MIT licensed.</p></div>
+<div class="card"><h3>🔓 Open source</h3><p>Audit the code, contribute, fork it. It's yours.</p></div>
 </div>
-<h2>Self-host in one minute</h2>
-<pre>git clone https://github.com/Phoenix1185/zaptdl.git
-cd zaptdl &amp;&amp; npm install
-cp .env.example .env   # fill your values
-pm2 start bot.js --name zaptdl</pre>
-<h2>Docs</h2>
-<p><a href="https://github.com/Phoenix1185/zaptdl/blob/main/DEPLOY.md">DEPLOY.md</a> — full setup: bot + Bot API server, cookies, commands<br>
-<a href="https://github.com/Phoenix1185/zaptdl/blob/main/HOSTING.md">HOSTING.md</a> — self-host guide and requirements<br>
-<a href="https://github.com/Phoenix1185/zaptdl/blob/main/SECURITY.md">SECURITY.md</a> — security policy</p>
-<h2>Telegram video downloader bot for YouTube, TikTok and Instagram — free and open source</h2><p style="color:#5c6470;font-size:13px">Zapt self-hosts on any Linux box and downloads from 1000+ sites with yt-dlp.</p><footer>Zapt ⚡ · MIT · built with yt-dlp · <a href="https://github.com/Phoenix1185/zaptdl/wiki">Wiki</a> · <a href="https://github.com/Phoenix1185/zaptdl/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/Phoenix1185/zaptdl/blob/main/COOKIES.md">Cookies guide</a> · <a href="https://github.com/Phoenix1185/zaptdl">GitHub</a></footer>
-</div></body>
+<div class="footer">
+<p>Zapt is free and open source under the <a href="https://github.com/Phoenix1185/zaptdl/blob/main/LICENSE">MIT License</a>.</p>
+<p><a href="https://t.me/zaptdl_bot">t.me/zaptdl_bot</a> · <a href="https://github.com/Phoenix1185/zaptdl">GitHub</a></p>
+</div>
+</body>
 </html>

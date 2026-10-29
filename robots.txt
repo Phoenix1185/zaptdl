@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
 Sitemap: https://phoenix1185.github.io/zaptdl/sitemap.xml
