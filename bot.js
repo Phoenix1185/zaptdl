@@ -580,7 +580,8 @@ function richCaption(job, meta, size) {
   if (meta.uploader) { const pn = platformOf(job.url); lines.push("\ud83d\udcf1 " + pn.charAt(0).toUpperCase() + pn.slice(1) + " Profile: " + esc(meta.uploader)); }
   if (meta.date) lines.push("<i>" + meta.date + "</i>");
   lines.push(esc(job.url));
-  const qline = job.deliveredQ === "4k" ? "⚡ 4K · " + fmtSize(size) : job.deliveredQ === "sd" ? "⚡ SD (480p) · " + fmtSize(size) : "⚡ HD · " + fmtSize(size);
+  const q = job.deliveredQ || job.quality;
+  const qline = q === "4k" ? "⚡ 4K · " + fmtSize(size) : q === "sd" ? "⚡ SD (480p) · " + fmtSize(size) : q === "low" ? "⚡ 240p · " + fmtSize(size) : "⚡ HD · " + fmtSize(size);
   lines.push(qline);
   return lines.join("\n").slice(0, 1024);
 }
@@ -801,6 +802,8 @@ bot.on("callback_query", async (cb) => {
       if (link.userId !== uid) return answer();
       pendingLinks.delete(key);
       await answer();
+      // collapse the quality selector: edit it to show the pick and drop the buttons
+      quiet(bot.editMessageText("⬇️ <b>" + quality.toUpperCase() + "</b> download started", { chat_id: link.chatId, message_id: msg.message_id, parse_mode: "HTML", reply_markup: { inline_keyboard: [] } }));
       // removed: no longer delete the user's URL message
       if (!isPremium(uid)) {
         const mine = [...jobs.values()].filter((j) => j.userId === uid && !j.done && (j.holding || j.entry) && !j.cancelled);
