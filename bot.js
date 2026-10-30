@@ -15,7 +15,7 @@ const ANIM = path.join(__dirname, "brand", "zapt_animation.mp4");
 const STORE = path.join(__dirname, "data.json");
 const MAX_FREE_CONC = 3;
 const MAX_PREMIUM_CONC = 10;
-const TIMEOUT_MS = 15 * 60 * 1000;
+const TIMEOUT_MS = 60 * 60 * 1000;
 const TIMEOUT_PREMIUM_MS = 60 * 60 * 1000;
 const MAX_UPLOAD = 1900 * 1024 * 1024;
 const LANGS = t.languages;
@@ -493,6 +493,12 @@ bot.on("message", async (msg) => {
     const text = msg.text || "";
     const m = text.match(/^\/(\w+)(?:@\w+)?(?:\s+([\s\S]*))?$/);
     if (m) return command(msg, m[1].toLowerCase(), (m[2] || "").trim());
+    // MENTION POPUP: someone types the bot @username in any chat -> show full details
+    if (text && text.toLowerCase().includes("@zaptdlbot")) { console.log("[zapt] mention popup fired chat", msg.chat.id, "type", msg.chat.type);
+      const kb = { inline_keyboard: [[{ text: "\⚡ Open Zapt", url: "https://t.me/zaptdlbot" }]] };
+      const det = "<b>\⚡ Zapt</b> \— fast media downloader\n\n\ud83c\udfac SD / HD / 4K quality\n\ud83c\udf10 YouTube, TikTok, Instagram, Twitter/X and more\n\ud83d\udc51 Premium: queue priority, 10 slots, 4K\n\ud83c\udf0f 18 languages\n\nSend any link or tap below to open.";
+      return api("sendMessage", msg.chat.id, det, { parse_mode: "HTML", reply_markup: kb, reply_to_message_id: msg.message_id });
+    }
     // BROADCAST CAPTURE: admin in bcPending sends content -> ship to all users
     if (bcPending.has(String(msg.from.id))) {
       const bc = bcPending.get(String(msg.from.id)); bcPending.delete(String(msg.from.id));
@@ -520,10 +526,10 @@ bot.on("message", async (msg) => {
     }
     const u = text.match(URL_RE);
     if (u) {
-      // vanish the user's previous delivered video in this chat (keep only latest)
+      // removed: keep delivered videos, no longer delete the previous one
       const key = msg.chat.id + ":" + msg.from.id;
-      const old = sentVideos.get(key);
-      if (old && old.chatId === msg.chat.id) { quiet(bot.deleteMessage(old.chatId, old.msgId)); sentVideos.delete(key); }
+      // removed: keep delivered videos, no longer delete the previous one
+      // removed: keep delivered videos, no longer delete the previous one
       // also clean the quality prompt of the previous link
       return askQuality(msg, u[0]);
     }
@@ -617,8 +623,11 @@ function runYtdlp(job) {
       resolve();
     });
     proc.stdout.on("data", (d) => {
-      const hm = d.toString().match(/(\d{3,4})x(\d{3,4})/);
+      const s = d.toString();
+      const hm = s.match(/(\d{3,4})x(\d{3,4})/);
       if (hm && !job.dlHeight) job.dlHeight = hm[2];
+      const pm = s.match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/);
+      if (pm) job.progress = Math.min(100, Math.round(parseFloat(pm[1])));
     });
   });
 }
@@ -652,7 +661,7 @@ async function runJob(job) {
         const filled = Math.round(pr / 10);
         const bar = "\u25A9".repeat(filled) + "\u25AF".repeat(10 - filled);
         const cap = dlStatus(uid, job) + "\n\n" + bar + " " + pr + "%";
-        quiet(api("editMessageCaption", cap, { chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: cancelKb(job.id), parse_mode: "HTML" }));
+        quiet(api("editMessageCaption", cap, { chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: cancelKb(job), parse_mode: "HTML" }));
       }
     }, 3000);
     job.progressTimer = tick;
@@ -689,7 +698,7 @@ async function runJob(job) {
           await editCap(job, "\u2699\uFE0F Optimizing to SD (480p)...", null);
           const out = file.replace(/\.\w+$/, "") + "_sd.mp4";
           await new Promise((res) => {
-            const enc = spawn("ffmpeg", ["-y", "-i", file, "-vf", "scale=-2:min(480\,ih)", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-c:a", "copy", out]);
+            const enc = spawn("ffmpeg", ["-y", "-i", file, "-vf", "scale=-2:min(480\\,ih)", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-c:a", "copy", out]);
             enc.on("close", res); enc.on("error", () => res(1));
           });
           if (fs.existsSync(out)) { try { fs.unlinkSync(file); } catch (e) {} file = out; size = fs.statSync(file).size; job.deliveredQ = "sd"; console.log("[zapt] sd downscale done:", job.id); }
@@ -711,7 +720,7 @@ async function runJob(job) {
       const sent = await api("sendVideo", chatId, file, { caption: richCaption(job, readMeta(job), size), supports_streaming: true, reply_markup: stripStyle(editCapKb(job.id)), parse_mode: "HTML" });
       try { if (sent && sent.video && sent.video.file_id) {
         sentVideos.set(chatId + ":" + uid, { chatId, msgId: sent.message_id, fileId: sent.video.file_id });
-        quiet(bot.deleteMessage(msg.chat.id, msg.message_id));
+        // removed: no longer delete the user's URL message
       } } catch (e) {}
       db.stats.downloads++; db.stats.bytes += size; user(uid).downloads++; save();
       await dropAnim(job);
@@ -788,7 +797,7 @@ bot.on("callback_query", async (cb) => {
       if (link.userId !== uid) return answer();
       pendingLinks.delete(key);
       await answer();
-      quiet(bot.deleteMessage(msg.chat.id, msg.message_id));
+      // removed: no longer delete the user's URL message
       if (!isPremium(uid)) {
         const mine = [...jobs.values()].filter((j) => j.userId === uid && !j.done && (j.holding || j.entry) && !j.cancelled);
         if (mine.length >= 2) {
@@ -797,7 +806,7 @@ bot.on("callback_query", async (cb) => {
         }
       }
       if (quality === "4k" && !isPremium(uid)) return answer("👑 4K downloads na Premium thing. tap /premium to unlock.", true);
-      if (isPausedFor(link.url)) return answer("⏸ downloads dey paused by admin right now. try again small time.", true);
+      if (isPausedFor(link.url)) return answer("⏳ request expired. pls send the link again.", true);
       const job = { id: newKey(), chatId: link.chatId, userId: uid, url: link.url, quality: quality, premium: isPremium(uid), entry: null, holding: false, anim: null, cancelled: false, proc: null };
       jobs.set(job.id, job);
       return runJob(job);
@@ -836,17 +845,7 @@ bot.on("successful_payment", async (sp) => {
 });
 
 // ---------- startup ----------
-quiet(bot.setMyCommands([
-  { command: "start", description: "⚡ Launch Zapt" },
-  { command: "help", description: "📖 How it works" },
-  { command: "about", description: "✨ About Zapt" },
-  { command: "language", description: "🌍 Change language" },
-  { command: "q", description: "📊 Queue status" },
-  { command: "premium", description: "👑 Zapt Premium" },
-  { command: "support", description: "🛠 Contact the developer" },
-  { command: "privacy", description: "🔒 Privacy policy" },
-  { command: "cancel", description: "🚫 Cancel your download" },
-]));
+// menu button removed: no global command list
 for (const adminId of ADMIN_IDS) {
   quiet(bot.setMyCommands([
     { command: "jobs", description: "🧾 Active downloads" },
@@ -858,3 +857,18 @@ for (const adminId of ADMIN_IDS) {
   ], { scope: { type: "chat", chat_id: Number(adminId) } }));
 }
 console.log("[zapt] bot up");
+
+// INLINE QUERY: typing @zaptdlbot in any chat input shows the bot panel
+bot.on("inline_query", (iq) => {
+  const det = "⚡ Zapt — fast media downloader | 🎬 SD/HD/4K · 🌐 YouTube, TikTok, IG, X · 👑 Premium · 🌍 18 languages";
+  const thumb = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26a1.png";
+  const results = [{
+    type: "article",
+    id: "zapt-details",
+    title: "⚡ Zapt — fast media downloader",
+    description: "SD/HD/4K · YouTube, TikTok, IG, X · Premium · 18 languages. Tap to share.",
+    input_message_content: { message_text: "<b>⚡ Zapt</b> — fast media downloader", parse_mode: "HTML" },
+    thumbnail_url: thumb,
+  }];
+  bot.answerInlineQuery(iq.id, results, { cache_time: 10 }).catch((e) => console.error("[zapt] inline:", e.message));
+});
