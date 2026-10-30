@@ -464,8 +464,8 @@ function askQuality(msg, url) {
   return api("sendMessage", msg.chat.id, T(msg.from.id, "quality"), {
     
     reply_markup: isPremium(msg.from.id)
-      ? { inline_keyboard: [[btn("Low · 360p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)]] }
-      : { inline_keyboard: [[btn("Low · 360p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)]] },
+      ? { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)]] }
+      : { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)]] },
   });
 }
 
@@ -592,7 +592,7 @@ const editCapKb = (id) => ({ inline_keyboard: [[btn("✏️ Edit Caption", "cap:
 function runYtdlp(job) {
   const base = path.join(os.tmpdir(), "zapt_" + job.id);
   const fmt = job.quality === "low"
-    ? "best[height<=360][ext=mp4]/best[height<=360]/worst[ext=mp4]/worst"
+    ? "best[height<=240][ext=mp4]/best[height<=240]/worst[ext=mp4]/worst"
     : job.quality === "4k"
     ? "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best"
     : job.quality === "hd"
