@@ -711,6 +711,38 @@ async function runJob(job) {
         }
       } catch (e) { console.error("[zapt] sd downscale:", e.message); }
     }
+    // smart compress: shrink oversized files with two-pass, no hard cap — still deliver if it refuses to shrink
+    if (size > 50 * 1024 * 1024) {
+      try {
+        await editCap(job, "🗜️ Optimizing file size...", null);
+        let dur = 0;
+        const pd = spawn("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]);
+        let od = "";
+        pd.stdout.on("data", (d) => { od += d; });
+        dur = await new Promise((res) => { pd.on("close", () => res(parseFloat(od.trim()) || 0)); setTimeout(() => res(0), 10000); });
+        if (dur > 0) {
+          const targetK = Math.floor((50 * 1024 * 1024 * 0.92) / 1024 / dur) - 128;
+          if (targetK > 100) {
+            const pk = file.replace(/\.\w+$/, "") + "_cap.mp4";
+            const p1 = spawn("ffmpeg", ["-y", "-i", file, "-c:v", "libx264", "-b:v", targetK + "k", "-pass", "1", "-preset", "faster", "-an", "-f", "mp4", "/dev/null"]);
+            await new Promise((res) => { p1.on("close", res); p1.on("error", () => res(1)); });
+            const p2 = spawn("ffmpeg", ["-y", "-i", file, "-c:v", "libx264", "-b:v", targetK + "k", "-pass", "2", "-preset", "faster", "-c:a", "copy", pk]);
+            await new Promise((res) => { p2.on("close", res); p2.on("error", () => res(1)); });
+            if (fs.existsSync(pk)) {
+              const nsize = fs.statSync(pk).size;
+              // only keep the compressed one if it is actually meaningfully smaller AND under the cap
+              if (nsize < 50 * 1024 * 1024 && nsize < size * 0.95) {
+                try { fs.unlinkSync(file); } catch (e) {} file = pk; size = nsize;
+                console.log("[zapt] smart compress ok:", job.id, size);
+              } else {
+                try { fs.unlinkSync(pk); } catch (e) {}
+                console.log("[zapt] compress not worth it, delivering original:", job.id);
+              }
+            } else console.log("[zapt] compress failed, delivering original:", job.id);
+          }
+        }
+      } catch (e) { console.error("[zapt] smart compress:", e.message); }
+    }
     await editCap(job, T(uid, "prep", { s: fmtSize(size) }), null);
     const capNow = job.premium ? 2000 * 1024 * 1024 : MAX_UPLOAD;
     if (size > capNow) {
