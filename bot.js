@@ -464,8 +464,8 @@ function askQuality(msg, url) {
   return api("sendMessage", msg.chat.id, T(msg.from.id, "quality"), {
     
     reply_markup: isPremium(msg.from.id)
-      ? { inline_keyboard: [[btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)]] }
-      : { inline_keyboard: [[btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)]] },
+      ? { inline_keyboard: [[btn("Low · 360p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)]] }
+      : { inline_keyboard: [[btn("Low · 360p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)]] },
   });
 }
 
@@ -591,7 +591,9 @@ const editCapKb = (id) => ({ inline_keyboard: [[btn("✏️ Edit Caption", "cap:
 
 function runYtdlp(job) {
   const base = path.join(os.tmpdir(), "zapt_" + job.id);
-  const fmt = job.quality === "4k"
+  const fmt = job.quality === "low"
+    ? "best[height<=360][ext=mp4]/best[height<=360]/worst[ext=mp4]/worst"
+    : job.quality === "4k"
     ? "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best"
     : job.quality === "hd"
     ? "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
@@ -688,12 +690,14 @@ async function runJob(job) {
     if (job.quality === "hd") job.deliveredQ = "hd";
     // SD promise: if the source only had one format, yt-dlp ignores the height filter.
     // force it: any video over 480p gets re-encoded down when SD was picked.
+    if (job.quality === "sd") console.log("[zapt] sd debug: quality=" + job.quality + " timedOut=" + !!job.timedOut + " err=" + (job.error||"none") + " code=" + job.code + " media=" + (media ? media.length : "none"));
     if (job.quality === "sd" && !job.timedOut && !job.error) {
       try {
         const probe = spawn("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "csv=p=0", file]);
         let h = "";
         probe.stdout.on("data", (d) => { h += d; });
         const height = await new Promise((res) => { probe.on("close", () => res(parseInt(h.trim(), 10) || 0)); setTimeout(() => res(0), 10000); });
+        console.log("[zapt] sd debug: probed height=" + height + " file=" + file);
         if (height > 480) {
           await editCap(job, "\u2699\uFE0F Optimizing to SD (480p)...", null);
           const out = file.replace(/\.\w+$/, "") + "_sd.mp4";
