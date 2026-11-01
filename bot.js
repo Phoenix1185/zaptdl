@@ -67,7 +67,7 @@ async function api(method, ...args) {
     return bot[method](...fixed);
   }
 }
-const quiet = (p) => p.catch(() => {});
+const quiet = (p, context) => p.catch((e) => { if (context) console.error("[zapt] " + context + " failed:", e.message); });
 
 function langKeyboard() {
   const rows = [];
@@ -542,7 +542,7 @@ bot.on("message", async (msg) => {
 const cancelKb = (job) => ({ inline_keyboard: [[btn(T(job.userId, "cancel"), "cx:" + job.id, "danger")]] });
 const editCap = (job, text, markup) => quiet(api("editMessageCaption", text, {
   chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: markup || { inline_keyboard: [] }, parse_mode: "HTML",
-}));
+}), "download caption edit job=" + job.id);
 async function dropAnim(job) {
   if (job.anim) { const id = job.anim.message_id; job.anim = null; await quiet(bot.deleteMessage(job.chatId, id)); }
 }
@@ -664,7 +664,7 @@ async function runJob(job) {
         const filled = Math.round(pr / 10);
         const bar = "\u25A9".repeat(filled) + "\u25AF".repeat(10 - filled);
         const cap = dlStatus(uid, job) + "\n\n" + bar + " " + pr + "%";
-        quiet(api("editMessageCaption", cap, { chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: cancelKb(job), parse_mode: "HTML" }));
+        quiet(api("editMessageCaption", cap, { chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: cancelKb(job), parse_mode: "HTML" }), "download progress edit job=" + job.id + " percent=" + pr);
       }
     }, 3000);
     job.progressTimer = tick;
