@@ -666,7 +666,7 @@ async function runJob(job) {
         const cap = dlStatus(uid, job) + "\n\n" + bar + " " + pr + "%";
         quiet(api("editMessageCaption", cap, { chat_id: job.chatId, message_id: job.anim.message_id, reply_markup: cancelKb(job), parse_mode: "HTML" }), "download progress edit job=" + job.id + " percent=" + pr);
       }
-    }, 3000);
+    }, 1000);
     job.progressTimer = tick;
 
     await runYtdlp(job);
