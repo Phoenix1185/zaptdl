@@ -4,7 +4,7 @@
 
 <p align="center"><img src="assets/zapt.gif" alt="Zapt" width="420"></p>
 
-Fast Telegram media downloader bot — paste a link, get the video.
+Zapt (also called Zaptdl) is a Telegram media downloader bot. Send a supported link in Telegram to download media from YouTube, TikTok, Instagram, Facebook, X (formerly Twitter) and 1000+ more sites via [yt-dlp](https://github.com/yt-dlp/yt-dlp). It is a free Telegram video downloader with SD and HD options, plus premium 4K where the source supports it.
 
 **Live bot:** [@zaptdl_bot](https://t.me/zaptdl_bot) · **Landing page:** [phoenix1185.github.io/zaptdl](https://phoenix1185.github.io/zaptdl/)
 
