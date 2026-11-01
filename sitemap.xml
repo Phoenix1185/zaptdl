@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://phoenix1185.github.io/zaptdl/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://phoenix1185.github.io/zaptdl/how-to-use.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://phoenix1185.github.io/zaptdl/supported-platforms.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://phoenix1185.github.io/zaptdl/features.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://phoenix1185.github.io/zaptdl/faq.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

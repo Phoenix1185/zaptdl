@@ -3,60 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zapt ⚡ Fast Telegram Media Downloader Bot — SD/HD/4K</title>
-<meta name="description" content="Zapt is a free, open-source Telegram media downloader bot. Download videos from YouTube, TikTok, Instagram, Twitter/X and more in SD, HD or 4K. Premium via Telegram Stars. Self-host in minutes.">
-<meta name="keywords" content="telegram bot, video downloader, youtube downloader, tiktok, instagram, yt-dlp, media downloader, open source, 4k downloader">
-<meta name="robots" content="index, follow">
+<title>Telegram Media Downloader Bot | YouTube, TikTok & Instagram | Zapt</title>
+<meta name="description" content="Download YouTube, TikTok, Instagram, Facebook and X videos in Telegram with Zapt, a free Telegram media downloader bot for SD and HD, with premium 4K options.">
+<meta name="keywords" content="telegram media downloader, telegram video downloader, download tiktok videos, youtube downloader bot, instagram video download, facebook video downloader, twitter video downloader, X video downloader, free telegram downloader, SD HD 4K video downloader, Zapt, zaptdl">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://phoenix1185.github.io/zaptdl/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Zapt ⚡ Fast Telegram Media Downloader Bot">
-<meta property="og:description" content="Download videos from YouTube, TikTok, Instagram, Twitter/X and more in SD, HD or 4K — right inside Telegram. Free and open source.">
+<meta property="og:site_name" content="Zapt">
+<meta property="og:title" content="Zapt | Telegram Media Downloader Bot">
+<meta property="og:description" content="Send a supported video link to Zapt on Telegram to download media from YouTube, TikTok, Instagram and more. SD and HD quality, with premium 4K options.">
 <meta property="og:url" content="https://phoenix1185.github.io/zaptdl/">
-<meta property="og:image" content="https://opengraph.githubassets.com/1/Phoenix1185/zaptdl">
+<meta property="og:image" content="https://phoenix1185.github.io/zaptdl/assets/zapt.gif">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Zapt ⚡ Fast Telegram Media Downloader Bot">
-<meta name="twitter:description" content="SD/HD/4K downloads inside Telegram. Free and open source.">
+<meta name="twitter:title" content="Zapt | Telegram Media Downloader Bot">
+<meta name="twitter:description" content="Download supported YouTube, TikTok, Instagram and other video links in Telegram with Zapt.">
+<meta name="twitter:image" content="https://phoenix1185.github.io/zaptdl/assets/zapt.gif">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Zapt","applicationCategory":"MultimediaApplication","operatingSystem":"Telegram Bot","url":"https://phoenix1185.github.io/zaptdl/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Fast Telegram media downloader bot. SD/HD/4K downloads from YouTube, TikTok, Instagram, Twitter/X and more. Open source, premium via Telegram Stars.","aggregateRating":{"@type":"AggregateRating","ratingValue":"5","ratingCount":"1"}}
+{
+  "@context":"https://schema.org",
+  "@type":"SoftwareApplication",
+  "name":"Zapt",
+  "applicationCategory":"MultimediaApplication",
+  "operatingSystem":"Telegram",
+  "url":"https://phoenix1185.github.io/zaptdl/",
+  "downloadUrl":"https://t.me/zaptdl_bot",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Free to use, with optional premium features via Telegram Stars"},
+  "description":"A Telegram media downloader bot for supported video and media links, including YouTube, TikTok, Instagram, Facebook and X. SD and HD quality options, with premium 4K options.",
+  "publisher":{"@type":"Organization","name":"Zapt"}
+}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I download a video with Zapt?","acceptedAnswer":{"@type":"Answer","text":"Open the Zapt bot in Telegram, send a link to a supported media page, choose an available quality if prompted, and wait for the bot to send the result."}},{"@type":"Question","name":"Which platforms does Zapt support?","acceptedAnswer":{"@type":"Answer","text":"Popular sources include YouTube, TikTok, Instagram, Facebook, X, Twitch, Reddit, SoundCloud and Vimeo, plus many other yt-dlp-supported sites. Support varies for individual links."}},{"@type":"Question","name":"Is Zapt free, and does it support 4K?","acceptedAnswer":{"@type":"Answer","text":"Zapt is free to use, with optional premium features via Telegram Stars. The bot offers SD and HD choices where available, and premium can unlock 4K when the source provides it."}}]}
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;line-height:1.6}
-.hero{text-align:center;padding:90px 20px 60px;background:radial-gradient(ellipse at top,#1a2332 0%,#0d1117 70%)}
+a{color:#58a6ff}
+.hero{text-align:center;padding:76px 20px 52px;background:radial-gradient(ellipse at top,#1a2332 0%,#0d1117 70%)}
 .hero .logo{font-size:64px}
 h1{font-size:clamp(2rem,6vw,3.2rem);margin:12px 0}
-.hero p{color:#8b949e;font-size:1.15rem;max-width:620px;margin:0 auto 32px}
-.btn{display:inline-block;padding:14px 32px;border-radius:12px;font-weight:600;text-decoration:none;margin:6px;font-size:1.05rem;transition:transform .15s}
+h2{font-size:clamp(1.5rem,4vw,2.2rem);margin:0 0 16px}
+h3{margin-bottom:8px;font-size:1.1rem}
+.hero p{color:#8b949e;font-size:1.15rem;max-width:680px;margin:0 auto 26px}
+.btn{display:inline-block;padding:14px 26px;border-radius:12px;font-weight:600;text-decoration:none;margin:6px;font-size:1rem;transition:transform .15s}
 .btn:hover{transform:translateY(-2px)}
 .btn-primary{background:#2ea043;color:#fff}
 .btn-ghost{background:#21262d;color:#e6edf3;border:1px solid #30363d}
-.features{max-width:1000px;margin:0 auto;padding:50px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:26px}
-.card h3{margin-bottom:8px;font-size:1.1rem}
-.card p{color:#8b949e;font-size:.95rem}
-.footer{text-align:center;padding:40px 20px;color:#8b949e;font-size:.9rem}
+.nav{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:14px 18px;background:#0d1117;border-top:1px solid #21262d;border-bottom:1px solid #21262d}
+.nav a{color:#c9d1d9;text-decoration:none;padding:7px 11px;border-radius:8px;font-size:.95rem}
+.nav a:hover{background:#161b22;color:#fff}
+.features{max-width:1000px;margin:0 auto;padding:44px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}
+.card,.panel{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:24px}
+.card p,.muted{color:#8b949e;font-size:.97rem}
+.section{max-width:900px;margin:0 auto;padding:44px 20px}
+.section>p{color:#c9d1d9;margin:0 0 16px}
+.panel{margin-top:16px}
+.panel ul,.panel ol{padding-left:22px;color:#c9d1d9}
+.panel li{margin:6px 0}
+.link-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.link-grid a{background:#21262d;border:1px solid #30363d;border-radius:10px;padding:10px 14px;text-decoration:none}
+.footer{text-align:center;padding:35px 20px;color:#8b949e;font-size:.9rem;border-top:1px solid #21262d}
 .footer a{color:#58a6ff;text-decoration:none}
+@media(max-width:520px){.hero{padding:54px 16px 38px}.btn{padding:13px 18px}.features{padding:28px 16px;gap:12px}.card,.panel{padding:20px}.section{padding:32px 16px}}
 </style>
 </head>
 <body>
-<div class="hero">
-<div class="logo">⚡</div>
-<h1>Zapt</h1>
-<p>The fast Telegram media downloader bot. Send a link, get your video — SD, HD or 4K, right in your chat.</p>
+<header class="hero">
+<div class="logo" aria-label="Zapt lightning logo">⚡</div>
+<h1>Zapt Telegram Media Downloader</h1>
+<p>Send a supported link to Zapt on Telegram and get the media in your chat. Download videos from YouTube, TikTok, Instagram and more, with SD and HD choices and premium 4K options.</p>
 <a class="btn btn-primary" href="https://t.me/zaptdl_bot">▶ Open Zapt on Telegram</a>
 <a class="btn btn-ghost" href="https://github.com/Phoenix1185/zaptdl">★ View on GitHub</a>
-</div>
-<div class="features">
-<div class="card"><h3>🎬 SD / HD / 4K</h3><p>Pick your quality. 4K when the source has it, best available when it doesn't.</p></div>
-<div class="card"><h3>🌐 All platforms</h3><p>YouTube, TikTok, Instagram, Twitter/X, Facebook and more.</p></div>
-<div class="card"><h3>⭐ Premium via Telegram Stars</h3><p>Queue priority, 10 parallel slots and 4K unlocks. Weekly, monthly or 3-month.</p></div>
-<div class="card"><h3>🌍 18 languages</h3><p>The bot speaks your language out of the box.</p></div>
-<div class="card"><h3>🛠 Self-host</h3><p>Full deploy docs, runs on any small VPS. MIT licensed.</p></div>
-<div class="card"><h3>🔓 Open source</h3><p>Audit the code, contribute, fork it. It's yours.</p></div>
-</div>
-<div class="footer">
+</header>
+<nav class="nav" aria-label="Main navigation">
+<a href="#features">Features</a><a href="how-to-use.html">How to use</a><a href="supported-platforms.html">Supported platforms</a><a href="features.html">Quality and features</a><a href="faq.html">FAQ</a>
+</nav>
+<main>
+<section class="features" id="features" aria-label="Zapt features">
+<article class="card"><h2>🎬 SD, HD and premium 4K</h2><p>Choose SD or HD where available. Premium unlocks 4K when the source offers it.</p></article>
+<article class="card"><h2>🌐 Many media platforms</h2><p>Send links from YouTube, TikTok, Instagram, Facebook, X and many other yt-dlp-supported sites.</p></article>
+<article class="card"><h2>⭐ Optional premium</h2><p>Zapt is free to use. Optional Telegram Stars premium adds queue priority, more parallel download slots and 4K access.</p></article>
+<article class="card"><h2>🌍 18 languages</h2><p>Use Zapt's localized bot menus and messages in any of its 18 supported languages.</p></article>
+<article class="card"><h2>⚡ Download flow in Telegram</h2><p>Paste a supported link into the bot chat and receive the resulting media there. No separate downloader app is needed.</p></article>
+<article class="card"><h2>🔓 Open source</h2><p>Zapt is MIT-licensed. The source code and self-hosting documentation are available on GitHub.</p></article>
+</section>
+<section class="section">
+<h2>A Telegram video downloader for links you already have</h2>
+<p>Zapt is a Telegram media downloader bot built for a simple workflow: share a link from a supported public media page, choose a quality when the bot offers one, and receive the download in Telegram. It supports popular services such as YouTube, TikTok, Instagram, Facebook and X, plus many more sites through yt-dlp.</p>
+<p>For platform coverage, quality details, setup instructions and common questions, use the guides below. Support depends on the source page, its access rules and the media format available.</p>
+<div class="link-grid"><a href="how-to-use.html">How to download with Zapt →</a><a href="supported-platforms.html">See platform coverage →</a><a href="features.html">Explore features →</a><a href="faq.html">Read the FAQ →</a></div>
+</section>
+</main>
+<footer class="footer">
 <p>Zapt is free and open source under the <a href="https://github.com/Phoenix1185/zaptdl/blob/main/LICENSE">MIT License</a>.</p>
-<p><a href="https://t.me/zaptdl_bot">t.me/zaptdl_bot</a> · <a href="https://github.com/Phoenix1185/zaptdl">GitHub</a></p>
-</div>
+<p><a href="https://t.me/zaptdl_bot">Open Zapt on Telegram</a> · <a href="https://github.com/Phoenix1185/zaptdl">GitHub source</a> · <a href="how-to-use.html">How to use</a> · <a href="supported-platforms.html">Platforms</a> · <a href="features.html">Features</a> · <a href="faq.html">FAQ</a></p>
+<p>Only download and share media when you have the rights and permission to do so.</p>
+</footer>
 </body>
 </html>
