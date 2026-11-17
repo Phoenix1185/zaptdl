@@ -17,6 +17,13 @@ const MAX_FREE_CONC = 3;
 const MAX_PREMIUM_CONC = 10;
 const TIMEOUT_MS = 60 * 60 * 1000;
 const TIMEOUT_PREMIUM_MS = 60 * 60 * 1000;
+// Slot-guard: no stage of a job may run forever, and a stalled download is
+// killed so its slot is freed. These bounds were missing: the old timer only
+// covered yt-dlp, so an SD ffmpeg encode or an upload could hold a slot for
+// days (live case: ffmpeg at ~6 CPU-min, zero output growth, since 2026-11-15).
+const STALL_MS = 10 * 60 * 1000; // no download progress for this long = kill
+const CONVERT_TIMEOUT_MS = 30 * 60 * 1000; // SD re-encode / ffprobe cap
+const HARD_JOB_TIMEOUT_MS = 3 * 60 * 60 * 1000; // whole-job cap, set per job
 const MAX_UPLOAD = 1900 * 1024 * 1024;
 const LANGS = t.languages;
 const URL_RE = /https?:\/\/[^\s<>"']+/i;
@@ -430,7 +437,9 @@ async function commandInner(msg, cmd, arg) {
 
 function cancelJob(job) {
   job.cancelled = true;
-  if (job.proc) { try { job.proc.kill("SIGKILL"); } catch (e) {} }
+  stopJobChildren(job);
+  clearTimeout(job.watchdog);
+  if (job.progressTimer) clearInterval(job.progressTimer);
   dropQueued(job);
 }
 
@@ -552,6 +561,25 @@ function cleanupFiles(job) {
     for (const f of fs.readdirSync(tmp)) if (f.startsWith("zapt_" + job.id)) fs.unlink(path.join(tmp, f), () => {});
   } catch (e) {}
 }
+function killProc(proc) {
+  if (!proc || proc.__killed) return;
+  proc.__killed = true;
+  try { proc.kill("SIGKILL"); } catch (e) {}
+}
+function stopJobChildren(job) {
+  for (const k of ["proc", "ffprobe", "ffmpeg"]) killProc(job[k]);
+}
+// Hard watchdog: whatever stage a job is stuck in (download, SD convert,
+// upload), kill its child processes so runJob reaches finally and frees the slot.
+function armWatchdog(job) {
+  clearTimeout(job.watchdog);
+  const ms = job.premium ? TIMEOUT_PREMIUM_MS * 3 : HARD_JOB_TIMEOUT_MS;
+  job.watchdog = setTimeout(() => {
+    console.error("[zapt] watchdog fired job=" + job.id + " progress=" + (job.progress || 0));
+    job.timedOut = true;
+    stopJobChildren(job);
+  }, ms);
+}
 function platformOf(url) {
   try {
     const h = new URL(url).hostname.replace(/^www\./, "");
@@ -608,24 +636,30 @@ function runYtdlp(job) {
   return new Promise((resolve) => {
     let stderr = "";
     let proc;
+    let done = false;
     const ytdlpBin = /youtube\.com|youtu\.be/.test(job.url) ? "yt-dlp-remote" : "yt-dlp";
+    const finish = () => { if (!done) { done = true; resolve(); } };
     try { proc = spawn(ytdlpBin, args); } catch (e) { job.error = e.message; return resolve(); }
     job.proc = proc;
-    const timer = setTimeout(() => { job.timedOut = true; try { proc.kill("SIGKILL"); } catch (e) {} }, job.premium ? TIMEOUT_PREMIUM_MS : TIMEOUT_MS);
+    let lastData = Date.now();
+    const timer = setTimeout(() => { job.timedOut = true; killProc(proc); }, job.premium ? TIMEOUT_PREMIUM_MS : TIMEOUT_MS);
+    const stall = setInterval(() => { if (Date.now() - lastData > STALL_MS) { console.error("[zapt] download stalled job=" + job.id); job.timedOut = true; killProc(proc); } }, 30000);
     proc.stderr.on("data", (d) => {
+      lastData = Date.now();
       stderr = (stderr + d).slice(-2000);
       const mm = d.toString().match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/);
       if (mm) job.progress = Math.min(100, Math.round(parseFloat(mm[1])));
     });
     proc.on("error", (e) => { job.error = e.message; });
     proc.on("close", (code) => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearInterval(stall);
       job.proc = null;
       job.code = code;
       job.stderr = stderr;
-      resolve();
+      finish();
     });
     proc.stdout.on("data", (d) => {
+      lastData = Date.now();
       const s = d.toString();
       const hm = s.match(/(\d{3,4})x(\d{3,4})/);
       if (hm && !job.dlHeight) job.dlHeight = hm[2];
@@ -646,6 +680,7 @@ async function runJob(job) {
       caption: queuedNow ? T(uid, "queued", { p: pos }) : dlStatus(uid, job),
       reply_markup: cancelKb(job),
     });
+    armWatchdog(job);
     const got = await ready;
     if (!got || job.cancelled) {
       await dropAnim(job);
@@ -695,16 +730,24 @@ async function runJob(job) {
     if (job.quality === "sd" && !job.timedOut && !job.error) {
       try {
         const probe = spawn("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "csv=p=0", file]);
+        job.ffprobe = probe;
         let h = "";
         probe.stdout.on("data", (d) => { h += d; });
-        const height = await new Promise((res) => { probe.on("close", () => res(parseInt(h.trim(), 10) || 0)); setTimeout(() => res(0), 10000); });
+        probe.stderr.on("data", () => {}); // drain: an unread pipe blocks ffmpeg
+        const height = await new Promise((res) => { let r = false; const done = (v) => { if (!r) { r = true; clearTimeout(pt); res(v); } }; const pt = setTimeout(() => { killProc(probe); done(0); }, 30000); probe.on("close", () => done(parseInt(h.trim(), 10) || 0)); probe.on("error", () => done(0)); });
+        job.ffprobe = null;
         console.log("[zapt] sd debug: probed height=" + height + " file=" + file);
         if (height > 480) {
           await editCap(job, "\u2699\uFE0F Optimizing to SD (480p)...", null);
           const out = file.replace(/\.\w+$/, "") + "_sd.mp4";
           await new Promise((res) => {
             const enc = spawn("ffmpeg", ["-y", "-i", file, "-vf", "scale=-2:min(480\\,ih)", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-c:a", "copy", out]);
-            enc.on("close", res); enc.on("error", () => res(1));
+            job.ffmpeg = enc;
+            enc.stderr.on("data", () => {}); // drain: unread stderr blocks ffmpeg forever
+            let r = false;
+            const done = (v) => { if (!r) { r = true; clearTimeout(ct); job.ffmpeg = null; res(v); } };
+            const ct = setTimeout(() => { console.error("[zapt] ffmpeg timed out job=" + job.id); killProc(enc); job.timedOut = true; done(1); }, CONVERT_TIMEOUT_MS);
+            enc.on("close", (c) => done(c)); enc.on("error", () => done(1));
           });
           if (fs.existsSync(out)) { try { fs.unlinkSync(file); } catch (e) {} file = out; size = fs.statSync(file).size; job.deliveredQ = "sd"; console.log("[zapt] sd downscale done:", job.id); }
           else console.log("[zapt] sd downscale FAILED, keeping original:", job.id);
@@ -737,10 +780,14 @@ async function runJob(job) {
     console.error("[zapt] job error:", e.message);
     await dropAnim(job);
   } finally {
+    clearTimeout(job.watchdog);
+    stopJobChildren(job);
+    if (job.progressTimer) try { clearInterval(job.progressTimer); } catch (e) {}
     dropQueued(job);
     releaseSlot(job);
     jobs.delete(job.id);
     cleanupFiles(job);
+    persistJobs();
   }
 }
 
