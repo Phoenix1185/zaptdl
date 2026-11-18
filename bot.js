@@ -56,6 +56,17 @@ function isPremium(id) {
   if (u.premium_until && Date.now() > u.premium_until) { u.premium = false; u.premium_until = null; save(); return false; }
   return !!u.premium;
 }
+const LOG_CHAT_ID = process.env.PAYMENT_LOG_CHAT_ID || "-5430788378"; // "Zapt logs channels" group
+const escHtml = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function receiptText(from, planKey, plan, sp) {
+  const name = [from.first_name, from.last_name].filter(Boolean).join(" ") || "(no name)";
+  return "🧾 <b>Zapt payment receipt</b>\n\n" +
+    "Plan: " + escHtml(plan.label) + " (" + escHtml(planKey) + ")\n" +
+    "Amount: " + escHtml(sp.total_amount) + " " + escHtml(sp.currency) + "\n" +
+    "Telegram ID: <code>" + escHtml(from.id) + "</code>\n" +
+    "Username: " + (from.username ? "@" + escHtml(from.username) : "(no username)") + "\n" +
+    "Name: " + escHtml(name);
+}
 const PREMIUM_PLANS = { w: { stars: 150, ms: 7 * 86400000, label: "1 Week Premium" }, m: { stars: 300, ms: 30 * 86400000, label: "1 Month Premium" }, m3: { stars: 750, ms: 90 * 86400000, label: "3 Months Premium" } };
 
 // ---------- helpers ----------
@@ -906,6 +917,8 @@ bot.on("successful_payment", async (msg) => {
     u.premium_until = base + plan.ms;
     db.payments[chargeId] = { uid, plan: parts[1], stars: sp.total_amount, at: Date.now() };
     save();
+    // receipt to the logs group: only after fulfillment, once per charge id (duplicates return above)
+    await quiet(api("sendMessage", LOG_CHAT_ID, receiptText(msg.from, parts[1], plan, sp), { parse_mode: "HTML" }), "payment receipt log");
     await quiet(api("sendMessage", msg.chat.id,
       "👑 <b>Payment received!</b> " + plan.stars + " ⭐\n\nPremium is active until <b>" + new Date(u.premium_until).toISOString().slice(0, 10) + "</b>.\n\nSkip the queue and enjoy ⚡",
       { parse_mode: "HTML" }));
