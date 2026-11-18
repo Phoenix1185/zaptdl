@@ -32,6 +32,71 @@ const ALLOWED_UPDATES = ["message", "edited_message", "callback_query", "inline_
 const bot = new TelegramBot(TOKEN, { polling: { params: { allowed_updates: ALLOWED_UPDATES } }, baseApiUrl: process.env.TELEGRAM_API_BASE || undefined });
 bot.on("polling_error", (e) => console.error("[zapt] polling error:", e.code || "", e.message));
 
+// ---------- ops log -> Telegram group ----------
+// Concise, redacted, deduped and rate limited. Never includes tokens, cookies, URLs, file names or media.
+const OPS_LOG_CHAT = process.env.PAYMENT_LOG_CHAT_ID || "-5430788378"; // "Zapt logs channels"
+const _origErr = console.error.bind(console);
+const opsQ = []; let opsDropped = 0, opsBusy = false;
+const opsSeen = new Map(); // dedup key -> { t, n }
+function opsRedact(x) {
+  let v = String(x == null ? "" : x);
+  if (TOKEN) v = v.split(TOKEN).join("[redacted]");
+  return v
+    .replace(/\bbot\d{5,}:[\w-]{20,}/g, "[redacted]")
+    .replace(/\b\d{6,}:[A-Za-z0-9_-]{30,}/g, "[redacted]")
+    .replace(/\b(ghp|gho|github_pat|AKIA|sk|xox[a-z])[-_A-Za-z0-9]{12,}/g, "[redacted]")
+    .replace(/https?:\/\/[^\s<>"']+/gi, "[url]")
+    .replace(/(cookie|authorization|token|secret|password|passwd|api[_-]?key)\s*[:=]\s*\S+/gi, "$1=[redacted]")
+    .replace(/\s+/g, " ").trim().slice(0, 600);
+}
+async function opsPump() {
+  if (opsBusy) return; opsBusy = true;
+  try {
+    while (opsQ.length) {
+      let text = opsQ.shift();
+      if (opsDropped) { text += "\n(+" + opsDropped + " log lines dropped: flood guard)"; opsDropped = 0; }
+      try { await bot.sendMessage(OPS_LOG_CHAT, text, { disable_web_page_preview: true, disable_notification: true }); }
+      catch (e) { if (!opsSeen.has("sendfail")) { opsSeen.set("sendfail", { t: Date.now(), n: 0 }); _origErr("[zapt-log] send to logs group failed:", e.message); } }
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  } finally { opsBusy = false; }
+}
+// level: INFO | WARN | ERROR. key defaults to the text with digits stripped. dedupMs: window for identical events.
+function zlog(level, text, dedupMs) {
+  try {
+    const clean = opsRedact(text);
+    if (!clean) return;
+    const key = level + clean.replace(/\d+/g, "#").slice(0, 160);
+    const win = dedupMs === undefined ? 60000 : dedupMs;
+    const now = Date.now();
+    const seen = opsSeen.get(key);
+    if (win && seen && now - seen.t < win) { seen.n++; return; }
+    if (opsSeen.size > 500) { for (const [k, v] of opsSeen) if (now - v.t > 120000) opsSeen.delete(k); }
+    const sup = seen && seen.n ? " (x" + (seen.n + 1) + " since last report)" : "";
+    opsSeen.set(key, { t: now, n: 0 });
+    const icon = level === "ERROR" ? "🔴" : level === "WARN" ? "🟠" : "🟢";
+    if (opsQ.length >= 40) { opsDropped++; return; }
+    opsQ.push(icon + " " + level + " " + clean + sup);
+    opsPump();
+  } catch (e) {}
+}
+console.error = (...a) => {
+  _origErr(...a);
+  const msg = a.map((x) => (x && x.message) || String(x)).join(" ");
+  if (msg.startsWith("[zapt-log]")) return;
+  zlog("ERROR", msg.replace(/^\[zapt\]\s*/, ""), 120000);
+};
+process.on("uncaughtException", (e) => { _origErr("[zapt] uncaught:", e && e.stack || e); zlog("ERROR", "uncaughtException: " + (e && e.message), 30000); });
+process.on("unhandledRejection", (e) => { _origErr("[zapt] unhandled rejection:", e && e.stack || e); zlog("ERROR", "unhandledRejection: " + (e && e.message || e), 30000); });
+let _shuttingDown = false;
+for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, () => {
+  if (_shuttingDown) return; _shuttingDown = true;
+  const live = typeof jobs !== "undefined" ? [...jobs.values()].filter((j) => !j.done && !j.cancelled).length : 0;
+  _origErr("[zapt] " + sig + " received, shutting down");
+  bot.sendMessage(OPS_LOG_CHAT, "🟠 WARN Zapt shutting down (" + sig + "), active jobs: " + live, { disable_notification: true }).catch(() => {}).finally(() => process.exit(0));
+  setTimeout(() => process.exit(0), 4000).unref();
+});
+
 // ---------- storage ----------
 let db = {};
 try { db = JSON.parse(fs.readFileSync(STORE, "utf8")); } catch (e) { db = {}; }
@@ -53,7 +118,7 @@ const isAdmin = (id) => ADMIN_IDS.includes(String(id));
 function isPremium(id) {
   if (isAdmin(id)) return true;
   const u = user(id);
-  if (u.premium_until && Date.now() > u.premium_until) { u.premium = false; u.premium_until = null; save(); return false; }
+  if (u.premium_until && Date.now() > u.premium_until) { u.premium = false; u.premium_until = null; save(); zlog("INFO", "Premium expired user=" + id, 0); return false; }
   return !!u.premium;
 }
 const LOG_CHAT_ID = process.env.PAYMENT_LOG_CHAT_ID || "-5430788378"; // "Zapt logs channels" group
@@ -165,7 +230,7 @@ async function resumePendingJobs() {
       await new Promise((r) => setTimeout(r, 800));
     } catch (e) { console.error("[zapt] resume failed:", e.message); }
   }
-  if (list.length) console.log("[zapt] resumed", list.length, "interrupted jobs");
+  if (list.length) { console.log("[zapt] resumed", list.length, "interrupted jobs"); zlog("INFO", "Recovered " + list.length + " interrupted job(s) after restart", 0); }
 }
 const waitQ = []; // queued entries
 let running = 0;
@@ -347,6 +412,7 @@ async function broadcastAll(msg, bc) {
     await up(okN);
   }
   await dropAnim({ anim });
+  zlog("INFO", "Broadcast complete: delivered " + okN + ", blocked " + blocked + ", failed " + failed, 0);
   await api("sendMessage", bc.chatId, "📡 <b>Broadcast complete</b>\n\n✅ Delivered: " + okN + "\n🚫 Blocked: " + blocked + (failed ? "\n❌ Failed: " + failed : ""), { parse_mode: "HTML" });
 }
 
@@ -379,6 +445,7 @@ async function commandInner(msg, cmd, arg) {
         case "pause": {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
       const plat = (arg || "").trim().toLowerCase();
+      zlog("WARN", "Admin " + uid + " paused downloads: " + (plat || "all"), 0);
       if (!plat || plat === "all") { pausedAll.v = true; return api("sendMessage", chatId, "⏸ ALL downloads paused. new links go dey rejected until /resume."); }
       pausedPlatforms.add(plat);
       return api("sendMessage", chatId, "⏸ downloads from " + plat.toUpperCase() + " paused. /resume " + plat + " to undo.");
@@ -386,6 +453,7 @@ async function commandInner(msg, cmd, arg) {
     case "resume": {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
       const plat = (arg || "").trim().toLowerCase();
+      zlog("INFO", "Admin " + uid + " resumed downloads: " + (plat || "all"), 0);
       if (!plat || plat === "all") { pausedAll.v = false; pausedPlatforms.clear(); return api("sendMessage", chatId, "▶️ everything resumed."); }
       pausedPlatforms.delete(plat);
       return api("sendMessage", chatId, "▶️ " + plat.toUpperCase() + " resumed.");
@@ -394,6 +462,7 @@ async function commandInner(msg, cmd, arg) {
     case "broadcastpin": {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
       bcPending.set(String(uid), { chatId, pin: cmd === "broadcastpin" });
+      zlog("INFO", "Admin " + uid + " started " + cmd, 0);
       return api("sendMessage", chatId, "📡 send the message to broadcast now (text, photo, video or forward).\n" + (cmd === "broadcastpin" ? "📌 e go pin for every chat wey i fit pin." : "") + "\n\nsend /broadcastcancel to abort.");
     }
     case "broadcastcancel": {
@@ -410,6 +479,7 @@ async function commandInner(msg, cmd, arg) {
     case "flush": {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
       const live = [...jobs.values()].filter((j) => !j.done);
+      zlog("WARN", "Admin " + uid + " flushed " + live.length + " active job(s)", 0);
       for (const j of live) cancelJob(j);
       return api("sendMessage", chatId, "🧹 flushed " + live.length + " active job(s)");
     }
@@ -448,6 +518,7 @@ async function commandInner(msg, cmd, arg) {
 }
 
 function cancelJob(job) {
+  if (!job.cancelled) zlog("INFO", "Download cancelled job=" + job.id + " " + platformOf(job.url), 0);
   job.cancelled = true;
   stopJobChildren(job);
   clearTimeout(job.watchdog);
@@ -468,6 +539,7 @@ async function forwardTicket(msg) {
       delivered++;
     } catch (e) { console.error("[zapt] ticket forward failed:", e.message); }
   }
+  zlog("INFO", "Support ticket #" + id + " from user " + uid + (delivered ? "" : " (delivery to admins FAILED)"), 0);
   if (!delivered) {
     db.ticketCount--; save();
     return api("sendMessage", chatId, T(uid, "sup_fail"));
@@ -587,7 +659,7 @@ function armWatchdog(job) {
   clearTimeout(job.watchdog);
   const ms = job.premium ? TIMEOUT_PREMIUM_MS * 3 : HARD_JOB_TIMEOUT_MS;
   job.watchdog = setTimeout(() => {
-    console.error("[zapt] watchdog fired job=" + job.id + " progress=" + (job.progress || 0));
+    zlog("WARN", "Watchdog killed stuck job=" + job.id, 0); console.error("[zapt] watchdog fired job=" + job.id + " progress=" + (job.progress || 0));
     job.timedOut = true;
     stopJobChildren(job);
   }, ms);
@@ -693,6 +765,7 @@ async function runJob(job) {
       reply_markup: cancelKb(job),
     });
     armWatchdog(job);
+    zlog("INFO", "Download " + (queuedNow ? "queued" : "started") + " job=" + job.id + " " + platformOf(job.url) + " " + String(job.quality).toUpperCase() + (job.premium ? " premium" : " free") + " user=" + uid, 0);
     const got = await ready;
     if (!got || job.cancelled) {
       await dropAnim(job);
@@ -728,6 +801,7 @@ async function runJob(job) {
     const tmp = os.tmpdir();
     const media = fs.readdirSync(tmp).filter((f) => f.startsWith(base + ".") && !/\.(part|ytdl|txt)$/.test(f));
     if (job.timedOut || job.error || job.code !== 0 || !media.length) {
+      zlog("WARN", "Download FAILED job=" + job.id + " " + platformOf(job.url) + " " + String(job.quality).toUpperCase() + " user=" + uid + " reason: " + (job.timedOut ? "timed out" : (job.error || (job.stderr || "").trim().split("\n").slice(-1)[0] || "no output").slice(-160)), 30000);
       await dropAnim(job);
       const why = job.timedOut ? "timed out" : job.error || (job.stderr || "").trim().split("\n").slice(-1)[0] || "";
       await api("sendMessage", chatId, media.length || job.code === 0 ? T(uid, "nofile") : T(uid, "fail", { e: why.slice(-200) }));
@@ -769,6 +843,7 @@ async function runJob(job) {
     await editCap(job, T(uid, "prep", { s: fmtSize(size) }), null);
     const capNow = job.premium ? 2000 * 1024 * 1024 : MAX_UPLOAD;
     if (size > capNow) {
+      zlog("WARN", "Download too large job=" + job.id + " " + platformOf(job.url) + " " + fmtSize(size), 0);
       if (job.premium) await api("sendMessage", chatId, "📦 file too big even for premium (" + fmtSize(size) + "). 2GB na di Telegram ceiling.");
       await dropAnim(job);
       await api("sendMessage", chatId, T(uid, "big", { s: fmtSize(size) }));
@@ -783,8 +858,10 @@ async function runJob(job) {
         // removed: no longer delete the user's URL message
       } } catch (e) {}
       db.stats.downloads++; db.stats.bytes += size; user(uid).downloads++; save();
+      zlog("INFO", "Download OK job=" + job.id + " " + platformOf(job.url) + " " + String(job.deliveredQ || job.quality).toUpperCase() + " " + fmtSize(size) + " user=" + uid, 0);
       await dropAnim(job);
     } catch (e) {
+      zlog("WARN", "Upload FAILED job=" + job.id + " " + platformOf(job.url) + " " + fmtSize(size) + " reason: " + e.message, 30000);
       await dropAnim(job);
       await api("sendMessage", chatId, T(uid, "upfail", { e: e.message }));
     }
@@ -890,6 +967,7 @@ bot.on("pre_checkout_query", async (q) => {
     const parts = String(q.invoice_payload || "").split(":");
     const plan = parts[0] === "prem" ? PREMIUM_PLANS[parts[1]] : null;
     const ok = !!plan && q.currency === "XTR" && q.total_amount === plan.stars && parts[2] === String(q.from.id);
+    if (!ok) zlog("WARN", "Pre-checkout declined user=" + q.from.id + " amount=" + q.total_amount + " " + q.currency, 60000);
     await bot.answerPreCheckoutQuery(q.id, ok, ok ? {} : { error_message: "This plan is not available. Please open /premium and try again." });
   } catch (e) {
     console.error("[zapt] pre_checkout error:", e.message);
@@ -938,6 +1016,7 @@ for (const adminId of ADMIN_IDS) {
   ], { scope: { type: "chat", chat_id: Number(adminId) } }));
 }
 console.log("[zapt] bot up");
+zlog("INFO", "Zapt started (pid " + process.pid + ", node " + process.version + ", admins " + ADMIN_IDS.length + ")", 0);
 
 // INLINE QUERY: typing @zaptdlbot in any chat input shows the bot panel
 bot.on("inline_query", (iq) => {
