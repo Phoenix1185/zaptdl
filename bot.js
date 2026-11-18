@@ -302,7 +302,7 @@ const premiumKb = (id) => ({
   inline_keyboard: [
     [btn(T(id, "prem_w"), "prem:w")],
     [btn(T(id, "prem_m"), "prem:m")],
-    [btn(T(id, "prem_3"), "prem:3")],
+    [btn(T(id, "prem_3"), "prem:m3")],
     [btn(T(id, "cancel"), "prem:close", "danger")],
   ],
 });
