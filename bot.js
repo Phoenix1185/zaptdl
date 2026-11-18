@@ -34,7 +34,8 @@ bot.on("polling_error", (e) => console.error("[zapt] polling error:", e.code || 
 
 // ---------- ops log -> Telegram group ----------
 // Concise, redacted, deduped and rate limited. Never includes tokens, cookies, URLs, file names or media.
-const OPS_LOG_CHAT = process.env.PAYMENT_LOG_CHAT_ID || "-5430788378"; // "Zapt logs channels"
+const LOG_CHAT_ID = process.env.PAYMENT_LOG_CHAT_ID || "-1003708174924"; // "Zapt logs channels" (supergroup; was -5430788378 before Telegram upgraded it)
+const OPS_LOG_CHAT = LOG_CHAT_ID;
 const _origErr = console.error.bind(console);
 const opsQ = []; let opsDropped = 0, opsBusy = false;
 const opsSeen = new Map(); // dedup key -> { t, n }
@@ -121,7 +122,6 @@ function isPremium(id) {
   if (u.premium_until && Date.now() > u.premium_until) { u.premium = false; u.premium_until = null; save(); zlog("INFO", "Premium expired user=" + id, 0); return false; }
   return !!u.premium;
 }
-const LOG_CHAT_ID = process.env.PAYMENT_LOG_CHAT_ID || "-5430788378"; // "Zapt logs channels" group
 const escHtml = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 function receiptText(from, planKey, plan, sp) {
   const name = [from.first_name, from.last_name].filter(Boolean).join(" ") || "(no name)";
