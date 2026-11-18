@@ -28,7 +28,8 @@ const MAX_UPLOAD = 1900 * 1024 * 1024;
 const LANGS = t.languages;
 const URL_RE = /https?:\/\/[^\s<>"']+/i;
 
-const bot = new TelegramBot(TOKEN, { polling: true, baseApiUrl: process.env.TELEGRAM_API_BASE || undefined });
+const ALLOWED_UPDATES = ["message", "edited_message", "callback_query", "inline_query", "chosen_inline_result", "pre_checkout_query", "my_chat_member", "chat_member"];
+const bot = new TelegramBot(TOKEN, { polling: { params: { allowed_updates: ALLOWED_UPDATES } }, baseApiUrl: process.env.TELEGRAM_API_BASE || undefined });
 bot.on("polling_error", (e) => console.error("[zapt] polling error:", e.code || "", e.message));
 
 // ---------- storage ----------
@@ -828,14 +829,8 @@ bot.on("callback_query", async (cb) => {
       const plan = PREMIUM_PLANS[data.slice(5)];
       if (!plan) return answer(T(uid, "prem_soon"), true);
       await answer();
-      return api("sendInvoice", msg.chat.id, {
-        title: plan.label,
-        description: "Skip the queue, priority downloads, faster limits.",
-        payload: "prem:" + data.slice(5) + ":" + uid,
-        currency: "XTR",
-        prices: [{ label: plan.label, amount: plan.stars }],
-        
-      });
+      return api("sendInvoice", msg.chat.id, plan.label, "Skip the queue, priority downloads, faster limits.",
+        "prem:" + data.slice(5) + ":" + uid, "", "XTR", [{ label: plan.label, amount: plan.stars }]);
     }
     if (data === "sup:cancel") {
       supportPending.delete(msg.chat.id + ":" + uid);
@@ -879,21 +874,40 @@ bot.on("callback_query", async (cb) => {
   }
 });
 
-bot.on("pre_checkout_query", (q) => bot.answerPreCheckoutQuery(q.id, true));
-
-bot.on("successful_payment", async (sp) => {
+bot.on("pre_checkout_query", async (q) => {
   try {
-    const uid = String(sp.from.id);
+    const parts = String(q.invoice_payload || "").split(":");
+    const plan = parts[0] === "prem" ? PREMIUM_PLANS[parts[1]] : null;
+    const ok = !!plan && q.currency === "XTR" && q.total_amount === plan.stars && parts[2] === String(q.from.id);
+    await bot.answerPreCheckoutQuery(q.id, ok, ok ? {} : { error_message: "This plan is not available. Please open /premium and try again." });
+  } catch (e) {
+    console.error("[zapt] pre_checkout error:", e.message);
+    quiet(bot.answerPreCheckoutQuery(q.id, false, { error_message: "Something went wrong. Please try again." }));
+  }
+});
+
+// node-telegram-bot-api emits "successful_payment" with the whole Message; the payment is in msg.successful_payment
+bot.on("successful_payment", async (msg) => {
+  try {
+    const sp = msg.successful_payment;
+    if (!sp || sp.currency !== "XTR" || !msg.from) return;
+    const uid = String(msg.from.id);
     const parts = String(sp.invoice_payload || "").split(":");
-    if (parts[0] !== "prem") return;
+    if (parts[0] !== "prem" || parts[2] !== uid) return;
     const plan = PREMIUM_PLANS[parts[1]];
+    if (!plan) { console.error("[zapt] payment for unknown plan:", sp.invoice_payload, sp.telegram_payment_charge_id); return; }
+    db.payments = db.payments || {};
+    const chargeId = String(sp.telegram_payment_charge_id || "");
+    if (!chargeId) return;
+    if (db.payments[chargeId]) return; // already fulfilled (idempotent)
     const u = user(uid);
     const base = u.premium_until && u.premium_until > Date.now() ? u.premium_until : Date.now();
     u.premium = true;
-    u.premium_until = base + (plan ? plan.ms : 7 * 86400000);
+    u.premium_until = base + plan.ms;
+    db.payments[chargeId] = { uid, plan: parts[1], stars: sp.total_amount, at: Date.now() };
     save();
-    await quiet(api("sendMessage", sp.chat.id,
-      "👑 <b>Payment received!</b> " + (plan ? plan.stars : sp.total_amount) + " ⭐\n\nPremium is active until <b>" + new Date(u.premium_until).toISOString().slice(0, 10) + "</b>.\n\nSkip the queue and enjoy ⚡",
+    await quiet(api("sendMessage", msg.chat.id,
+      "👑 <b>Payment received!</b> " + plan.stars + " ⭐\n\nPremium is active until <b>" + new Date(u.premium_until).toISOString().slice(0, 10) + "</b>.\n\nSkip the queue and enjoy ⚡",
       { parse_mode: "HTML" }));
   } catch (e) { console.error("[zapt] payment error:", e.message); }
 });
