@@ -487,8 +487,8 @@ function aboutShort(uid) { const d = ABOUT_I18N[langOf(uid)] || ABOUT_I18N.en; r
 function privacyText(uid) { const d = ABOUT_I18N[langOf(uid)] || ABOUT_I18N.en; return d.privacy; }
 
 async function setupProfile() {
-  try { await quiet(api("setMyShortDescription", null, ABOUT_I18N.en.about_short)); } catch (e) {}
-  try { await quiet(api("setMyDescription", null, ABOUT_I18N.en.about_long)); } catch (e) {}
+  try { await quiet(api("setMyShortDescription", { short_description: ABOUT_I18N.en.about_short })); } catch (e) {}
+  try { await quiet(api("setMyDescription", { description: ABOUT_I18N.en.about_long })); } catch (e) {}
 }
 
 bot.on("message", async (msg) => {
