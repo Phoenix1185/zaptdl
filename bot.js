@@ -105,6 +105,7 @@ db.users = db.users || {};
 db.stats = db.stats || { downloads: 0, bytes: 0 };
 db.tickets = db.tickets || [];
 db.ticketCount = db.ticketCount || 0;
+const TL = require("./ticketlife.js");
 const save = () => {
   try { fs.writeFileSync(STORE, JSON.stringify(db)); } catch (e) { console.error("[zapt] save failed:", e.message); }
 };
@@ -548,6 +549,7 @@ async function appendToTicket(msg) {
   if (!t) { for (let i = db.tickets.length - 1; i >= 0; i--) if (db.tickets[i].user === String(uid)) { t = db.tickets[i]; break; } }
   if (!t) return forwardTicket(msg); // no prior ticket known: open one
   const who = msg.from.username ? "@" + msg.from.username : (msg.from.first_name || "user");
+  const reopened = TL.userReplied(t, Date.now()); save();
   let delivered = 0;
   for (const admin of ADMIN_IDS) {
     try {
@@ -555,7 +557,7 @@ async function appendToTicket(msg) {
       const opts = {};
       const cardId = t.cards && t.cards[admin];
       if (cardId) { opts.reply_to_message_id = cardId; opts.allow_sending_without_reply = true; }
-      await bot.sendMessage(admin, "💬 Support ticket #" + t.id + " (follow-up)\nFrom: " + who + " (id " + uid + ")\n\nUser replied. Reply to THIS message to answer.", opts);
+      await bot.sendMessage(admin, "💬 Support ticket #" + t.id + " (follow-up" + (reopened ? ", reopened" : "") + ")\nFrom: " + who + " (id " + uid + ")\n\nUser replied. Reply to THIS message to answer.", opts);
       delivered++;
     } catch (e) { console.error("[zapt] ticket follow-up failed:", e.message); }
   }
@@ -585,7 +587,8 @@ async function forwardTicket(msg) {
     return api("sendMessage", chatId, T(uid, "sup_fail"));
   }
   supportPending.delete(skey);
-  db.tickets.push({ id, user: String(uid), chat: String(chatId), at: Date.now(), cards });
+  for (const o of db.tickets) if (o.user === String(uid) && o.awaiting && o.status !== "closed") TL.userReplied(o, Date.now());
+  db.tickets.push({ id, user: String(uid), chat: String(chatId), at: Date.now(), cards, status: "open", awaiting: false });
   save();
   return api("sendMessage", chatId, T(uid, "sup_sent", { id }));
 }
@@ -648,7 +651,7 @@ bot.on("message", async (msg) => {
           const m = /Support ticket #(\d+)/.exec(rt);
           let tk = m ? db.tickets.find((x) => x.id === Number(m[1])) : null;
           if (!tk) for (let i = db.tickets.length - 1; i >= 0; i--) if (db.tickets[i].user === String(targetUser)) { tk = db.tickets[i]; break; }
-          if (tk && sent && sent.message_id) { db.replyMap = db.replyMap || {}; db.replyMap[targetUser + ":" + sent.message_id] = tk.id; save(); }
+          if (tk) { TL.adminReplied(tk, Date.now()); if (sent && sent.message_id) { db.replyMap = db.replyMap || {}; db.replyMap[targetUser + ":" + sent.message_id] = tk.id; } save(); }
         } catch (e) {}
         return quiet(api("sendMessage", msg.chat.id, "✅ delivered to the user"));
       } catch (e) {
@@ -1051,6 +1054,31 @@ bot.on("successful_payment", async (msg) => {
       { parse_mode: "HTML" }));
   } catch (e) { console.error("[zapt] payment error:", e.message); }
 });
+
+// ---------- ticket auto-close sweep (state is on the persisted tickets, so a restart just resumes) ----------
+let sweeping = false;
+async function sweepTickets(now) {
+  if (sweeping) return; sweeping = true;
+  try {
+    now = now || Date.now();
+    for (const t of db.tickets) {
+      const d = TL.due(t, now);
+      if (d.action === "none") continue;
+      const target = t.chat || t.user;
+      if (d.action === "remind") {
+        TL.markReminded(t, d.n); save(); // persist first: at most once per reminder
+        await quiet(api("sendMessage", target, "⏰ Reminder: support is waiting for your reply on ticket #" + t.id + ". Reply to the support message above if you still need help, otherwise it will close automatically."));
+        zlog("INFO", "Ticket #" + t.id + " reminder " + d.n + "/" + TL.REMIND_AFTER.length, 0);
+      } else {
+        TL.markClosed(t, now); save();
+        await quiet(api("sendMessage", target, "🔒 Ticket #" + t.id + " was closed because we didn't hear back. Need more help? Reply to the support message or open /support again."));
+        zlog("INFO", "Ticket #" + t.id + " auto-closed (no user reply within 7h of last admin reply)", 0);
+      }
+    }
+  } catch (e) { console.error("[zapt] ticket sweep:", e.message); } finally { sweeping = false; }
+}
+setInterval(() => sweepTickets(), 60000).unref();
+setTimeout(() => sweepTickets(), 15000).unref();
 
 // ---------- startup ----------
 // menu button removed: no global command list
