@@ -526,6 +526,14 @@ function cancelJob(job) {
   dropQueued(job);
 }
 
+// reply target: forwarded original, or the "Support ticket #N ... (id UID)" card (works for older cards too)
+function ticketTarget(r) {
+  if (r.forward_from && r.forward_from.id) return r.forward_from.id;
+  if (r.forward_origin && r.forward_origin.sender_user) return r.forward_origin.sender_user.id;
+  const m = /Support ticket #\d+[\s\S]*?\(id (\d+)\)/.exec(String(r.text || ""));
+  return m ? Number(m[1]) : null;
+}
+
 async function forwardTicket(msg) {
   const chatId = msg.chat.id, uid = msg.from.id, skey = chatId + ":" + uid;
   db.ticketCount++;
@@ -599,8 +607,8 @@ bot.on("message", async (msg) => {
       return;
     }
     // ADMIN REPLY: admin replies to the forwarded ticket in his own chat -> lands back to the user
-    if (msg.reply_to_message && ADMIN_IDS.includes(String(msg.from.id)) && msg.reply_to_message.forward_from) {
-      const targetUser = msg.reply_to_message.forward_from.id;
+    if (msg.reply_to_message && ADMIN_IDS.includes(String(msg.from.id)) && ticketTarget(msg.reply_to_message)) {
+      const targetUser = ticketTarget(msg.reply_to_message);
       try {
         await api("sendMessage", targetUser, "💬 <b>Support reply:</b>\n\n" + esc(String(text)).slice(0, 3000), { parse_mode: "HTML" });
         return quiet(api("sendMessage", msg.chat.id, "✅ delivered to the user"));
