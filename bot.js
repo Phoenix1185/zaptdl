@@ -603,9 +603,9 @@ bot.on("message", async (msg) => {
       const targetUser = msg.reply_to_message.forward_from.id;
       try {
         await api("sendMessage", targetUser, "💬 <b>Support reply:</b>\n\n" + esc(String(text)).slice(0, 3000), { parse_mode: "HTML" });
-        return quiet(api("sendMessage", chatId, "✅ delivered to the user"));
+        return quiet(api("sendMessage", msg.chat.id, "✅ delivered to the user"));
       } catch (e) {
-        return quiet(api("sendMessage", chatId, "😭 couldn't reach that user: " + e.message));
+        return quiet(api("sendMessage", msg.chat.id, "😭 couldn't reach that user: " + e.message));
       }
     }
     if (supportPending.has(msg.chat.id + ":" + msg.from.id)) return forwardTicket(msg);
