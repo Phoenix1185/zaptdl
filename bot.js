@@ -534,6 +534,11 @@ function ticketTarget(r) {
   return m ? Number(m[1]) : null;
 }
 
+function isSupportReplyToUser(msg) {
+  const r = msg.reply_to_message;
+  return !!(r && msg.from && !ADMIN_IDS.includes(String(msg.from.id)) && r.from && r.from.is_bot && /^💬 Support reply:/.test(String(r.text || "")));
+}
+
 async function forwardTicket(msg) {
   const chatId = msg.chat.id, uid = msg.from.id, skey = chatId + ":" + uid;
   db.ticketCount++;
@@ -616,6 +621,8 @@ bot.on("message", async (msg) => {
         return quiet(api("sendMessage", msg.chat.id, "😭 couldn't reach that user: " + e.message));
       }
     }
+    // USER REPLY TO SUPPORT: user swipes/replies to the admin's "Support reply" message -> back to admins as a new ticket card
+    if (isSupportReplyToUser(msg)) return forwardTicket(msg);
     if (supportPending.has(msg.chat.id + ":" + msg.from.id)) return forwardTicket(msg);
     if (capPending.has(String(msg.from.id))) {
       const rec = capPending.get(String(msg.from.id)); capPending.delete(String(msg.from.id));
