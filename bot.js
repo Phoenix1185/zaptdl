@@ -25,6 +25,7 @@ const STALL_MS = 10 * 60 * 1000; // no download progress for this long = kill
 const CONVERT_TIMEOUT_MS = 30 * 60 * 1000; // SD re-encode / ffprobe cap
 const HARD_JOB_TIMEOUT_MS = 3 * 60 * 60 * 1000; // whole-job cap, set per job
 const MAX_UPLOAD = 1900 * 1024 * 1024;
+const idcmd = require("./idcmd");
 const LANGS = t.languages;
 const URL_RE = /https?:\/\/[^\s<>"']+/i;
 
@@ -470,6 +471,17 @@ async function commandInner(msg, cmd, arg) {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
       bcPending.delete(String(uid));
       return api("sendMessage", chatId, "🚫 broadcast cancelled");
+    }
+    case "id": {
+      if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
+      const tid = idcmd.parseId(arg);
+      if (!tid) return api("sendMessage", chatId, "usage: /id <telegram_user_id>\nexample: /id 123456789 (numbers only)");
+      let chat = null;
+      try { chat = await api("getChat", tid); } catch (e) { chat = null; }
+      if (chat && chat.type && chat.type !== "private") chat = null;
+      const stored = db.users[tid] || null;
+      zlog("INFO", "Admin " + uid + " looked up id " + tid, 0);
+      return api("sendMessage", chatId, idcmd.format(tid, chat, stored), { parse_mode: "HTML" });
     }
     case "jobs": {
       if (!isAdmin(uid)) return api("sendMessage", chatId, "admin only 🚫");
