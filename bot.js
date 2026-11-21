@@ -539,16 +539,43 @@ function isSupportReplyToUser(msg) {
   return !!(r && msg.from && !ADMIN_IDS.includes(String(msg.from.id)) && r.from && r.from.is_bot && /^💬 Support reply:/.test(String(r.text || "")));
 }
 
+// user replied to a bot "Support reply": append to the ORIGINAL ticket thread (reply under its card in each admin chat), no new ticket
+async function appendToTicket(msg) {
+  const chatId = msg.chat.id, uid = msg.from.id;
+  db.replyMap = db.replyMap || {};
+  let tid = db.replyMap[chatId + ":" + msg.reply_to_message.message_id];
+  let t = tid && db.tickets.find((x) => x.id === tid);
+  if (!t) { for (let i = db.tickets.length - 1; i >= 0; i--) if (db.tickets[i].user === String(uid)) { t = db.tickets[i]; break; } }
+  if (!t) return forwardTicket(msg); // no prior ticket known: open one
+  const who = msg.from.username ? "@" + msg.from.username : (msg.from.first_name || "user");
+  let delivered = 0;
+  for (const admin of ADMIN_IDS) {
+    try {
+      await bot.forwardMessage(admin, chatId, msg.message_id);
+      const opts = {};
+      const cardId = t.cards && t.cards[admin];
+      if (cardId) { opts.reply_to_message_id = cardId; opts.allow_sending_without_reply = true; }
+      await bot.sendMessage(admin, "💬 Support ticket #" + t.id + " (follow-up)\nFrom: " + who + " (id " + uid + ")\n\nUser replied. Reply to THIS message to answer.", opts);
+      delivered++;
+    } catch (e) { console.error("[zapt] ticket follow-up failed:", e.message); }
+  }
+  zlog("INFO", "Support follow-up on ticket #" + t.id + " from user " + uid + (delivered ? "" : " (delivery to admins FAILED)"), 0);
+  if (!delivered) return api("sendMessage", chatId, T(uid, "sup_fail"));
+  return api("sendMessage", chatId, T(uid, "sup_sent", { id: t.id }));
+}
+
 async function forwardTicket(msg) {
   const chatId = msg.chat.id, uid = msg.from.id, skey = chatId + ":" + uid;
   db.ticketCount++;
   const id = db.ticketCount;
   let delivered = 0;
+  const cards = {};
   for (const admin of ADMIN_IDS) {
     try {
       await bot.forwardMessage(admin, chatId, msg.message_id);
       const who = msg.from.username ? "@" + msg.from.username : (msg.from.first_name || "user");
-      await bot.sendMessage(admin, "🎫 Support ticket #" + id + "\nFrom: " + who + " (id " + uid + ")\n\nReply to THIS message (or the forwarded one) to answer the user.");
+      const card = await bot.sendMessage(admin, "🎫 Support ticket #" + id + "\nFrom: " + who + " (id " + uid + ")\n\nReply to THIS message (or the forwarded one) to answer the user.");
+      if (card && card.message_id) cards[admin] = card.message_id;
       delivered++;
     } catch (e) { console.error("[zapt] ticket forward failed:", e.message); }
   }
@@ -558,7 +585,7 @@ async function forwardTicket(msg) {
     return api("sendMessage", chatId, T(uid, "sup_fail"));
   }
   supportPending.delete(skey);
-  db.tickets.push({ id, user: String(uid), chat: String(chatId), at: Date.now() });
+  db.tickets.push({ id, user: String(uid), chat: String(chatId), at: Date.now(), cards });
   save();
   return api("sendMessage", chatId, T(uid, "sup_sent", { id }));
 }
@@ -615,14 +642,21 @@ bot.on("message", async (msg) => {
     if (msg.reply_to_message && ADMIN_IDS.includes(String(msg.from.id)) && ticketTarget(msg.reply_to_message)) {
       const targetUser = ticketTarget(msg.reply_to_message);
       try {
-        await api("sendMessage", targetUser, "💬 <b>Support reply:</b>\n\n" + esc(String(text)).slice(0, 3000), { parse_mode: "HTML" });
+        const sent = await api("sendMessage", targetUser, "💬 <b>Support reply:</b>\n\n" + esc(String(text)).slice(0, 3000), { parse_mode: "HTML" });
+        try {
+          const rt = msg.reply_to_message.text || "";
+          const m = /Support ticket #(\d+)/.exec(rt);
+          let tk = m ? db.tickets.find((x) => x.id === Number(m[1])) : null;
+          if (!tk) for (let i = db.tickets.length - 1; i >= 0; i--) if (db.tickets[i].user === String(targetUser)) { tk = db.tickets[i]; break; }
+          if (tk && sent && sent.message_id) { db.replyMap = db.replyMap || {}; db.replyMap[targetUser + ":" + sent.message_id] = tk.id; save(); }
+        } catch (e) {}
         return quiet(api("sendMessage", msg.chat.id, "✅ delivered to the user"));
       } catch (e) {
         return quiet(api("sendMessage", msg.chat.id, "😭 couldn't reach that user: " + e.message));
       }
     }
     // USER REPLY TO SUPPORT: user swipes/replies to the admin's "Support reply" message -> back to admins as a new ticket card
-    if (isSupportReplyToUser(msg)) return forwardTicket(msg);
+    if (isSupportReplyToUser(msg)) return appendToTicket(msg);
     if (supportPending.has(msg.chat.id + ":" + msg.from.id)) return forwardTicket(msg);
     if (capPending.has(String(msg.from.id))) {
       const rec = capPending.get(String(msg.from.id)); capPending.delete(String(msg.from.id));
