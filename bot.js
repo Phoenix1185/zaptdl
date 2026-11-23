@@ -867,8 +867,8 @@ async function runJob(job) {
     if (job.timedOut || job.error || job.code !== 0 || !media.length) {
       zlog("WARN", "Download FAILED job=" + job.id + " " + platformOf(job.url) + " " + String(job.quality).toUpperCase() + " user=" + uid + " reason: " + (job.timedOut ? "timed out" : (job.error || (job.stderr || "").trim().split("\n").slice(-1)[0] || "no output").slice(-160)), 30000);
       await dropAnim(job);
-      const why = job.timedOut ? "timed out" : job.error || (job.stderr || "").trim().split("\n").slice(-1)[0] || "";
-      await api("sendMessage", chatId, media.length || job.code === 0 ? T(uid, "nofile") : T(uid, "fail", { e: why.slice(-200) }));
+      const why = job.timedOut ? "⏱️ That took too long and timed out. Try a smaller or shorter one." : require("./friendly").friendlyError(job.error || job.stderr || "");
+      await api("sendMessage", chatId, media.length || job.code === 0 ? T(uid, "nofile") : T(uid, "fail", { e: why }));
       return;
     }
     let file = path.join(tmp, media[0]);
