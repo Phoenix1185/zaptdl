@@ -775,7 +775,7 @@ function runYtdlp(job) {
     : job.quality === "hd"
     ? "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
     : "best[height<=480][ext=mp4]/best[height<=480]/worst[ext=mp4]/worst";
-  const args = ["-f", fmt, "--merge-output-format", "mp4", "--no-playlist", "--newline", "--no-warnings", "--concurrent-fragments", "8", "--cookies", path.join(__dirname, "yt.cookies.txt"),
+  const args = ["-f", fmt, "--merge-output-format", "mp4", "--no-playlist", "--newline", "--no-warnings", "--concurrent-fragments", "8", "--cookies", (/(^|\.)tiktok\.com\//i.test(job.url.replace(/^https?:\/\//,"")) ? "/home/ubuntu/secrets/tiktok_cookies_zapt.txt" : path.join(__dirname, "yt.cookies.txt")),
     "--print-to-file", "%(title)s", base + "_title.txt",
     "--print-to-file", "%(uploader)s", base + "_uploader.txt",
     "--print-to-file", "%(description)s", base + "_desc.txt",
@@ -865,7 +865,13 @@ async function runJob(job) {
     const tmp = os.tmpdir();
     const media = fs.readdirSync(tmp).filter((f) => f.startsWith(base + ".") && !/\.(part|ytdl|txt)$/.test(f));
     if (job.timedOut || job.error || job.code !== 0 || !media.length) {
-      zlog("WARN", "Download FAILED job=" + job.id + " " + platformOf(job.url) + " " + String(job.quality).toUpperCase() + " user=" + uid + " reason: " + (job.timedOut ? "timed out" : (job.error || (job.stderr || "").trim().split("\n").slice(-1)[0] || "no output").slice(-160)), 30000);
+      // yt-dlp appends a generic "please report this issue ... yt-dlp -U" template as the LAST line,
+      // so taking slice(-1) hides the real error. Grab the first ERROR: line instead.
+      const rawErr = String(job.error || job.stderr || "");
+      const firstErr = (rawErr.split("\n").find((l) => /^\s*ERROR:/i.test(l)) || "").trim();
+      const errHead = firstErr.split("; please report this issue")[0].trim();
+      const errLine = errHead || (rawErr.trim().split("\n").slice(-1)[0] || "no output").trim();
+      zlog("WARN", "Download FAILED job=" + job.id + " " + platformOf(job.url) + " " + String(job.quality).toUpperCase() + " user=" + uid + " reason: " + errLine.slice(0, 300), 30000);
       await dropAnim(job);
       const why = job.timedOut ? "⏱️ That took too long and timed out. Try a smaller or shorter one." : require("./friendly").friendlyError(job.error || job.stderr || "");
       await api("sendMessage", chatId, media.length || job.code === 0 ? T(uid, "nofile") : T(uid, "fail", { e: why }));
