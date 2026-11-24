@@ -24,7 +24,9 @@ const TIMEOUT_PREMIUM_MS = 60 * 60 * 1000;
 const STALL_MS = 10 * 60 * 1000; // no download progress for this long = kill
 const CONVERT_TIMEOUT_MS = 30 * 60 * 1000; // SD re-encode / ffprobe cap
 const HARD_JOB_TIMEOUT_MS = 3 * 60 * 60 * 1000; // whole-job cap, set per job
-const MAX_UPLOAD = 1900 * 1024 * 1024;
+const caps = require("./caps");
+const MAX_UPLOAD = caps.FREE_CAP; // free cap: 1900 MiB
+const MAX_PREMIUM_DL = caps.PREMIUM_CAP; // premium download cap: 5 GiB (5*1024^3); delivery is capped by UPLOAD_CEILING in caps.js
 const idcmd = require("./idcmd");
 const LANGS = t.languages;
 const URL_RE = /https?:\/\/[^\s<>"']+/i;
@@ -384,6 +386,18 @@ const premiumKb = (id) => ({
     [btn(T(id, "cancel"), "prem:close", "danger")],
   ],
 });
+
+// Free user tried a file over 1900 MiB: reuse the existing /premium flow
+// (same prem:w / prem:m / prem:m3 callbacks that sendInvoice) as the CTA.
+const upgradeKb = (id) => ({
+  inline_keyboard: [
+    [btn(T(id, "prem_w"), "prem:w")],
+    [btn(T(id, "prem_m"), "prem:m")],
+    [btn(T(id, "prem_3"), "prem:m3")],
+    [btn(T(id, "cancel"), "prem:close", "danger")],
+  ],
+});
+const UPGRADE_TEXT = "This file is too big for free (over 1900 MiB). Move to premium to enjoy more, bigger files, priority downloads, 4K. Tap a plan below to upgrade.";
 
 // ---------- support ----------
 const pausedAll = { v: false };
@@ -950,12 +964,19 @@ async function runJob(job) {
       } catch (e) { console.error("[zapt] sd downscale:", e.message); }
     }
     await editCap(job, T(uid, "prep", { s: fmtSize(size) }), null);
-    const capNow = job.premium ? 2000 * 1024 * 1024 : MAX_UPLOAD;
+    const capNow = caps.effectiveCap(job.premium);
     if (size > capNow) {
-      zlog("WARN", "Download too large job=" + job.id + " " + platformOf(job.url) + " " + fmtSize(size), 0);
-      if (job.premium) await api("sendMessage", chatId, "📦 file too big even for premium (" + fmtSize(size) + "). 2GB na di Telegram ceiling.");
+      zlog("WARN", "Download too large job=" + job.id + " " + platformOf(job.url) + " " + fmtSize(size) + " premium=" + job.premium + " cap=" + capNow, 0);
       await dropAnim(job);
-      await api("sendMessage", chatId, T(uid, "big", { s: fmtSize(size) }));
+      if (caps.needsUpgrade(size, job.premium)) {
+        // free user over 1900 MiB: clear upgrade prompt with the existing premium buttons
+        await api("sendMessage", chatId, UPGRADE_TEXT + "\n\n" + T(uid, "big", { s: fmtSize(size) }), { reply_markup: upgradeKb(uid) });
+      } else {
+        // premium (or anything over the 2000 MiB local Bot API upload ceiling):
+        // normal too-large response, no upgrade CTA
+        if (job.premium) await api("sendMessage", chatId, "\ud83d\udce6 file too big even for premium (" + fmtSize(size) + "). 2GB na di Telegram ceiling.");
+        await api("sendMessage", chatId, T(uid, "big", { s: fmtSize(size) }));
+      }
       return;
     }
     try {
