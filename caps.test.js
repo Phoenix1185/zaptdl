@@ -5,7 +5,7 @@ const MiB = 1024 * 1024;
 
 // thresholds
 a.equal(FREE_CAP, 1900 * MiB);
-a.equal(PREMIUM_CAP, 5 * 1024 ** 3);
+a.equal(PREMIUM_CAP, 2000 * MiB);
 a.equal(UPLOAD_CEILING, 2000 * MiB);
 
 // free: capped at 1900 MiB, anything above is an upgrade prompt
@@ -16,13 +16,15 @@ a.equal(overCap(2500 * MiB, false), true);
 a.equal(needsUpgrade(2500 * MiB, false), true);
 a.equal(needsUpgrade(100 * MiB, false), false);
 
-// premium: download cap is 5 GiB, but Telegram delivery tops out at 2000 MiB
-a.equal(effectiveCap(true), 2000 * MiB); // min(5 GiB, 2000 MiB)
+// premium: Telegram-only cap is 2000 MiB (local Bot API ceiling)
+a.equal(effectiveCap(true), 2000 * MiB); // Telegram-only premium cap
 a.equal(overCap(1900 * MiB, true), false);
 a.equal(overCap(1999 * MiB, true), false);
 a.equal(overCap(2000 * MiB, true), false);
 a.equal(overCap(2000 * MiB + 1, true), true);
-a.equal(overCap(5 * 1024 ** 3, true), true); // exceeds local Bot API upload ceiling
+a.equal(overCap(5 * 1024 ** 3, true), true); // 5 GiB exceeds the 2000 MiB Telegram ceiling, rejected before upload
+a.equal(overCap(2000 * MiB + 1, true), true); // just over 2000 MiB rejected before upload
+a.equal(needsUpgrade(2000 * MiB + 1, true), false); // premium over-cap never gets the upgrade CTA
 a.equal(needsUpgrade(3000 * MiB, true), false); // premium never gets the upgrade CTA
 
 // upgrade CTA reuses the existing premium flow buttons (prem:w / prem:m / prem:m3)

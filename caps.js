@@ -1,12 +1,12 @@
 // Upload/download size caps for Zapt.
 //
-// Telegram's own Bot API can only send 50 MB. A self-hosted local Bot API
-// server (--local) raises that to 2000 MB per file, so delivery can never
-// exceed 2000 MiB even though the premium *download* cap is 5 GiB.
+// Telegram-only delivery: a self-hosted local Bot API server (--local)
+// can send up to 2000 MB per file. Premium files are capped at that same
+// ceiling, so anything over 2000 MiB is rejected before upload.
 // (core.telegram.org/bots/api, "Using a Local Bot API Server")
 
 const FREE_CAP = 1900 * 1024 * 1024;              // free users: 1900 MiB
-const PREMIUM_CAP = 5 * 1024 ** 3;                // premium users: 5 GiB (5*1024^3)
+const PREMIUM_CAP = 2000 * 1024 * 1024;           // premium users: 2000 MiB (Telegram local Bot API ceiling)
 const UPLOAD_CEILING = 2000 * 1024 * 1024;        // local Bot API upload max per file
 
 function effectiveCap(premium) {
