@@ -766,6 +766,13 @@ const sentVideos = new Map();
 const capPending = new Map(); // uid -> {chatId,msgId,fileId}
 const editCapKb = (id) => ({ inline_keyboard: [[btn("✏️ Edit Caption", "cap:" + id, "ok")]] });
 
+function isTikTokUrl(u) {
+  try {
+    const h = new URL(u).hostname.replace(/^www\./, "").toLowerCase();
+    return h === "tiktok.com" || h === "vt.tiktok.com" || h === "vm.tiktok.com" || h === "m.tiktok.com" || h.endsWith(".tiktok.com");
+  } catch (e) { return /(^|\.)tiktok\.com(\/|$)/i.test(u || ""); }
+}
+
 function runYtdlp(job) {
   const base = path.join(os.tmpdir(), "zapt_" + job.id);
   const fmt = job.quality === "low"
@@ -775,7 +782,7 @@ function runYtdlp(job) {
     : job.quality === "hd"
     ? "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
     : "best[height<=480][ext=mp4]/best[height<=480]/worst[ext=mp4]/worst";
-  const args = ["-f", fmt, "--merge-output-format", "mp4", "--no-playlist", "--newline", "--no-warnings", "--concurrent-fragments", "8", "--cookies", (/(^|\.)tiktok\.com\//i.test(job.url.replace(/^https?:\/\//,"")) ? "/home/ubuntu/secrets/tiktok_cookies_zapt.txt" : path.join(__dirname, "yt.cookies.txt")),
+  const args = ["-f", fmt, "--merge-output-format", "mp4", "--no-playlist", "--newline", "--no-warnings", "--concurrent-fragments", "8", "--cookies", isTikTokUrl(job.url) ? "/home/ubuntu/secrets/tiktok_cookies_zapt.txt" : path.join(__dirname, "yt.cookies.txt"),
     "--print-to-file", "%(title)s", base + "_title.txt",
     "--print-to-file", "%(uploader)s", base + "_uploader.txt",
     "--print-to-file", "%(description)s", base + "_desc.txt",

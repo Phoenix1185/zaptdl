@@ -1,5 +1,6 @@
 // Turns raw yt-dlp output into a short, user-safe message. Never exposes cookies/flags/URLs.
 const RULES = [
+  [/IP address is blocked|your ip.{0,30}blocked|is blocked from accessing|accessdenied/i, "🚫 TikTok is blocking my server IP right now, so I can't read this post. Try a different link, or I can try again later if TikTok still refuses."],
   [/log in for access|login required|sign in to confirm|--cookies|cookies-from-browser|authentication|private (video|account)|this video is private|members[- ]only|age[- ]restricted|not comfortable for some audiences|confirm your age|requires? (a )?login/i, "🔒 That one needs a login to view (private, age-restricted or sensitive content), so I can't grab it."],
   [/unsupported url|not a valid url|no suitable extractor/i, "🔗 That link isn't one I can download from. Send a direct link to a public video or post."],
   [/video unavailable|removed|deleted|no longer available|does not exist|not found|404|has been terminated|account.*suspended/i, "🗑️ That post looks removed or unavailable."],
