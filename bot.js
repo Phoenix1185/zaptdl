@@ -109,6 +109,7 @@ db.stats = db.stats || { downloads: 0, bytes: 0 };
 db.tickets = db.tickets || [];
 db.ticketCount = db.ticketCount || 0;
 const TL = require("./ticketlife.js");
+const TR = require("./translate.js");
 const save = () => {
   try { fs.writeFileSync(STORE, JSON.stringify(db)); } catch (e) { console.error("[zapt] save failed:", e.message); }
 };
@@ -415,9 +416,29 @@ async function broadcastAll(msg, bc) {
   try { anim = await api("sendAnimation", bc.chatId, ANIM, { caption: "📡 Broadcasting to " + targets.length + " users...", reply_markup: { inline_keyboard: [] } }); } catch (e) {}
   let okN = 0, blocked = 0, failed = 0;
   const up = async (n) => { if (anim && n % 25 === 0) { try { await api("editMessageCaption", "📡 Broadcasting...\n\n✅ " + okN + " delivered · 🚫 " + blocked + " blocked", { chat_id: bc.chatId, message_id: anim.message_id, parse_mode: "HTML" }); } catch (e) {} } };
+  // multilingual: original is kept as-is; each non-English language is translated once per broadcast
+  const origText = msg.text || msg.caption || "";
+  const tx = origText ? TR.createTranslator(origText, (c) => (LANGS.find((x) => x.code === c) || {}).name || c) : null;
+  const maxLen = msg.text ? 4096 : 1024;
+  if (tx) {
+    const need = [...new Set(targets.map((u) => langOf(u)).filter((l) => l !== "en" && t.isLang(l)))];
+    for (const l of need) { await tx.get(l); await new Promise((r) => setTimeout(r, 250)); }
+    zlog("INFO", "Broadcast translations: " + need.length + " languages, " + tx.calls() + " requests", 0);
+  }
   for (const uid of targets) {
     try {
-      const sent = await bot.copyMessage(uid, msg.chat.id, msg.message_id);
+      let sent = null;
+      const l = langOf(uid);
+      const combined = tx && l !== "en" && t.isLang(l) ? await tx.get(l) : null;
+      if (combined && combined.length <= maxLen) {
+        try {
+          const ents = msg.text ? msg.entities : msg.caption_entities;
+          sent = msg.text
+            ? await bot.sendMessage(uid, combined, { entities: ents, disable_web_page_preview: true })
+            : await bot.copyMessage(uid, msg.chat.id, msg.message_id, { caption: combined, caption_entities: ents });
+        } catch (e) { if (/blocked|kicked|deactivated|not found/i.test(String(e.message || ""))) throw e; sent = null; }
+      }
+      if (!sent) sent = await bot.copyMessage(uid, msg.chat.id, msg.message_id);
       okN++;
       if (bc.pin && sent && sent.message_id) { try { await api("pinChatMessage", uid, sent.message_id); } catch (e) {} }
     } catch (e) {
