@@ -25,6 +25,7 @@ const STALL_MS = 10 * 60 * 1000; // no download progress for this long = kill
 const CONVERT_TIMEOUT_MS = 30 * 60 * 1000; // SD re-encode / ffprobe cap
 const HARD_JOB_TIMEOUT_MS = 3 * 60 * 60 * 1000; // whole-job cap, set per job
 const caps = require("./caps");
+const AUDIO = require("./audio");
 const MAX_UPLOAD = caps.FREE_CAP; // free cap: 1900 MiB
 const MAX_PREMIUM_DL = caps.PREMIUM_CAP; // premium cap: 2000 MiB (Telegram local Bot API ceiling); UPLOAD_CEILING in caps.js is the same 2000 MiB
 const idcmd = require("./idcmd");
@@ -644,11 +645,17 @@ function askQuality(msg, url) {
   const key = newKey();
   pendingLinks.set(key, { url, userId: String(msg.from.id), chatId: msg.chat.id });
   setTimeout(() => pendingLinks.delete(key), 30 * 60 * 1000).unref();
+  // audio-only hosts cannot return video: queue an audio job directly
+  if (AUDIO.isAudioHost(url)) {
+    return api("sendMessage", msg.chat.id, "🎵 This is audio-only content, downloading as MP3...", {
+      reply_markup: { inline_keyboard: [[btn("🎵 Audio only", "dl:audio:" + key)]] },
+    });
+  }
   return api("sendMessage", msg.chat.id, T(msg.from.id, "quality"), {
     
     reply_markup: isPremium(msg.from.id)
-      ? { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)]] }
-      : { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)]] },
+      ? { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key), btn("4K · 👑", "dl:4k:" + key)], [btn("🎵 Audio only", "dl:audio:" + key)]] }
+      : { inline_keyboard: [[btn("Low · 240p", "dl:low:" + key), btn("SD · ⚡", "dl:sd:" + key), btn("HD · 🔥", "dl:hd:" + key)], [btn("🎵 Audio only", "dl:audio:" + key)]] },
   });
 }
 
@@ -711,7 +718,8 @@ bot.on("message", async (msg) => {
     if (capPending.has(String(msg.from.id))) {
       const rec = capPending.get(String(msg.from.id)); capPending.delete(String(msg.from.id));
       try {
-        await quiet(api("editMessageMedia", null, { chat_id: rec.chatId, message_id: rec.msgId, media: { type: "video", media: rec.fileId, caption: esc(String(text || "")).slice(0, 1024) }, parse_mode: "HTML" }));
+        const _mt = /\.mp3$|audio/.test(rec.fileId || "") ? "audio" : "video";
+        await quiet(api("editMessageMedia", null, { chat_id: rec.chatId, message_id: rec.msgId, media: { type: _mt, media: rec.fileId, caption: esc(String(text || "")).slice(0, 1024) }, parse_mode: "HTML" }));
         await quiet(api("sendMessage", rec.chatId, "✅ caption updated"));
       } catch (e) { await quiet(api("sendMessage", rec.chatId, "😭 couldn't update caption: " + e.message)); }
       return;
@@ -766,12 +774,13 @@ function armWatchdog(job) {
 function platformOf(url) {
   try {
     const h = new URL(url).hostname.replace(/^www\./, "");
-    const map = { "instagram.com":"instagram", "instagr.am":"instagram", "youtube.com":"youtube", "youtu.be":"youtube", "tiktok.com":"tiktok", "x.com":"x", "twitter.com":"x", "facebook.com":"facebook", "fb.watch":"facebook", "pinterest.com":"pinterest", "reddit.com":"reddit", "vimeo.com":"vimeo", "soundcloud.com":"soundcloud", "twitch.tv":"twitch" };
+    const map = { "instagram.com":"instagram", "instagr.am":"instagram", "youtube.com":"youtube", "youtu.be":"youtube", "music.youtube.com":"youtube music", "tiktok.com":"tiktok", "x.com":"x", "twitter.com":"x", "facebook.com":"facebook", "fb.watch":"facebook", "pinterest.com":"pinterest", "reddit.com":"reddit", "vimeo.com":"vimeo", "soundcloud.com":"soundcloud", "bandcamp.com":"bandcamp", "audiomack.com":"audiomack", "deezer.com":"deezer", "spotify.com":"spotify", "mixcloud.com":"mixcloud", "twitch.tv":"twitch" };
     return map[h] || h.split(".")[0];
   } catch (e) { return "media"; }
 }
 
 function dlStatus(uid, job) {
+  if (job.quality === "audio") { const base = "🎵 Audio only"; if (langOf(uid) !== "en") return base + "\n\ud83c\udf10 " + platformOf(job.url); return base.replace("Audio", platformOf(job.url) + " audio"); }
   const line = T(uid, "dl", { q: job.quality.toUpperCase() });
   if (langOf(uid) !== "en") return line + "\n\ud83c\udf10 " + platformOf(job.url);
   return line.replace("Downloading in", "Downloading " + platformOf(job.url) + " content in");
@@ -780,6 +789,28 @@ function dlStatus(uid, job) {
 function readMeta(job) {
   const rd = (suffix) => { try { return fs.readFileSync(path.join(os.tmpdir(), "zapt_" + job.id + suffix), "utf8").trim(); } catch (e) { return ""; } };
   return { title: rd("_title.txt"), uploader: rd("_uploader.txt"), desc: rd("_desc.txt"), date: rd("_date.txt") };
+}
+function audioTitle(job, meta, mediaFile) {
+  let t = (meta && meta.title) || "";
+  if (!t || /^zapt_\d+$/.test(t)) {
+    try {
+      const base = path.basename(mediaFile || "").replace(/\.[^.]+$/, "");
+      if (base && !/^zapt_\d+$/.test(base)) t = base;
+    } catch (e) {}
+  }
+  if ((!t || /^zapt_\d+$/.test(t)) && job && job.url) {
+    try {
+      const m = String(job.url).match(/[?&](?:title|t)=([^&#]+)/i);
+      if (m) t = decodeURIComponent(m[1].replace(/\+/g, " "));
+    } catch (e) {}
+  }
+  if (!t || /^zapt_\d+$/.test(t)) t = "audio";
+  return t.slice(0, 180);
+}
+function audioPerformer(job, meta) {
+  const a = (meta && meta.uploader) || "";
+  if (!a || /^zapt_\d+$/.test(a)) return "";
+  return a.slice(0, 120);
 }
 function richCaption(job, meta, size) {
   const lines = [];
@@ -792,7 +823,7 @@ function richCaption(job, meta, size) {
   if (meta.date) lines.push("<i>" + meta.date + "</i>");
   lines.push(esc(job.url));
   const q = job.deliveredQ || job.quality;
-  const qline = q === "4k" ? "⚡ 4K · " + fmtSize(size) : q === "sd" ? "⚡ SD (480p) · " + fmtSize(size) : q === "low" ? "⚡ 240p · " + fmtSize(size) : "⚡ HD · " + fmtSize(size);
+  const qline = q === "audio" ? AUDIO.audioCaptionLine(size, fmtSize) : q === "4k" ? "⚡ 4K · " + fmtSize(size) : q === "sd" ? "⚡ SD (480p) · " + fmtSize(size) : q === "low" ? "⚡ 240p · " + fmtSize(size) : "⚡ HD · " + fmtSize(size);
   lines.push(qline);
   return lines.join("\n").slice(0, 1024);
 }
@@ -810,6 +841,25 @@ function isTikTokUrl(u) {
 
 function runYtdlp(job) {
   const base = path.join(os.tmpdir(), "zapt_" + job.id);
+  if (job.quality === "audio") {
+    const cookiesPath = isTikTokUrl(job.url) ? "/home/ubuntu/secrets/tiktok_cookies_zapt.txt" : path.join(__dirname, "yt.cookies.txt");
+    const args = AUDIO.audioYtdlpArgs(job, base, cookiesPath);
+    return new Promise((resolve) => {
+      let stderr = "";
+      let proc;
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      try { proc = spawn("yt-dlp", args); } catch (e) { job.error = e.message; return resolve(); }
+      job.proc = proc;
+      let lastData = Date.now();
+      const timer = setTimeout(() => { job.timedOut = true; killProc(proc); }, job.premium ? TIMEOUT_PREMIUM_MS : TIMEOUT_MS);
+      const stall = setInterval(() => { if (Date.now() - lastData > STALL_MS) { console.error("[zapt] download stalled job=" + job.id); job.timedOut = true; killProc(proc); } }, 30000);
+      proc.stderr.on("data", (d) => { lastData = Date.now(); stderr = (stderr + d).slice(-2000); const mm = d.toString().match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/); if (mm) job.progress = Math.min(100, Math.round(parseFloat(mm[1]))); });
+      proc.stdout.on("data", (d) => { lastData = Date.now(); const s = d.toString(); const pm = s.match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/); if (pm) job.progress = Math.min(100, Math.round(parseFloat(pm[1]))); });
+      proc.on("error", (e) => { job.error = e.message; });
+      proc.on("close", (code) => { clearTimeout(timer); clearInterval(stall); job.proc = null; job.code = code; job.stderr = stderr; finish(); });
+    });
+  }
   const fmt = job.quality === "low"
     ? "best[height<=240][ext=mp4]/best[height<=240]/worst[ext=mp4]/worst"
     : job.quality === "4k"
@@ -1003,9 +1053,19 @@ async function runJob(job) {
     try {
       const shortName = media[0].length > 28 ? media[0].slice(0, 25) + "..." : media[0];
       await editCap(job, "📤 Uploading " + shortName + " to Telegram...", null);
-      const sent = await api("sendVideo", chatId, file, { caption: richCaption(job, readMeta(job), size), supports_streaming: true, reply_markup: stripStyle(editCapKb(job.id)), parse_mode: "HTML" });
-      try { if (sent && sent.video && sent.video.file_id) {
-        sentVideos.set(chatId + ":" + uid, { chatId, msgId: sent.message_id, fileId: sent.video.file_id });
+      const isAudio = job.quality === "audio" || job.deliveredQ === "audio";
+      const audioMeta = readMeta(job);
+      const audioOpts = { caption: richCaption(job, audioMeta, size), reply_markup: stripStyle(editCapKb(job.id)), parse_mode: "HTML" };
+      if (isAudio) {
+        audioOpts.title = audioTitle(job, audioMeta, file);
+        const performer = audioPerformer(job, audioMeta);
+        if (performer) audioOpts.performer = performer;
+      }
+      const sent = isAudio
+        ? await api("sendAudio", chatId, file, audioOpts)
+        : await api("sendVideo", chatId, file, { caption: richCaption(job, readMeta(job), size), supports_streaming: true, reply_markup: stripStyle(editCapKb(job.id)), parse_mode: "HTML" });
+      try { const _fid = (sent && sent.video && sent.video.file_id) || (sent && sent.audio && sent.audio.file_id); if (_fid) {
+        sentVideos.set(chatId + ":" + uid, { chatId, msgId: sent.message_id, fileId: _fid });
         // removed: no longer delete the user's URL message
       } } catch (e) {}
       db.stats.downloads++; db.stats.bytes += size; user(uid).downloads++; save();
