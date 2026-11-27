@@ -887,27 +887,26 @@ async function runYtdlp(job) {
     let proc;
     let done = false;
     const isYt = /youtube\.com|youtu\.be/.test(job.url);
-    // YouTube is local-first: the remote (box1) path returns "Video unavailable" for
-    // videos the local box resolves fine (same cookies), so remote-first wastes a
-    // full failed attempt on most downloads. Local yt-dlp with yt.cookies.txt is
-    // the primary; remote is kept only as fallback below if local fails.
-    const ytdlpBin = "yt-dlp";
+    // YouTube is remote-first: the local datacenter IP (AWS) is fully blocked by
+    // YouTube (HTTP 403 on the player API even with fresh cookies, verified on this
+    // host). yt-dlp-remote runs on a clean IP, so it is the primary. Local is only
+    // a fallback if the remote path fails.
+    const ytdlpBin = isYt ? "yt-dlp-remote" : "yt-dlp";
     const finish = () => { if (!done) { done = true; resolve(); } };
-    // For YouTube: local is primary (see above); if it fails, fall back once to the
-    // remote/box1 path (cleaner IP) before surfacing an error. This keeps a
-    // fallback for cases where the local IP/cookies hit a block.
+    // For YouTube: remote is primary (see above); if it fails, fall back once to local
+    // before surfacing an error.
     const tryLocalFallback = async (reason) => {
       if (!isYt || job._ytFallbackTried) return;
       job._ytFallbackTried = true;
-      console.error("[zapt] youtube local failed, trying remote yt-dlp job=" + job.id + " reason=" + reason);
+      console.error("[zapt] youtube remote failed, trying local yt-dlp job=" + job.id + " reason=" + reason);
       job.code = 0; job.error = null; job.stderr = ""; job.timedOut = false;
       job.progress = Math.max(job.progress || 0, 5);
       let proc2;
-      try { proc2 = spawn("yt-dlp-remote", args); } catch (e) { job.error = "remote yt-dlp fallback spawn failed: " + e.message; console.error("[zapt] remote yt-dlp fallback spawn failed job=" + job.id); return; }
+      try { proc2 = spawn("yt-dlp", args); } catch (e) { job.error = "remote yt-dlp fallback spawn failed: " + e.message; console.error("[zapt] local yt-dlp fallback spawn failed job=" + job.id); return; }
       job.proc = proc2;
       const timer2 = setTimeout(() => { job.timedOut = true; killProc(proc2); }, job.premium ? TIMEOUT_PREMIUM_MS : TIMEOUT_MS);
       let last2 = Date.now();
-      const stall2 = setInterval(() => { if (Date.now() - last2 > STALL_MS) { console.error("[zapt] remote fallback stalled job=" + job.id); job.timedOut = true; killProc(proc2); } }, 30000);
+      const stall2 = setInterval(() => { if (Date.now() - last2 > STALL_MS) { console.error("[zapt] local fallback stalled job=" + job.id); job.timedOut = true; killProc(proc2); } }, 30000);
       proc2.stderr.on("data", (d) => { last2 = Date.now(); stderr = (stderr + d).slice(-2000); const mm = d.toString().match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/); if (mm) job.progress = Math.min(100, Math.round(parseFloat(mm[1]))); });
       proc2.stdout.on("data", (d) => { last2 = Date.now(); const pm = d.toString().match(/\[download\]\s+(\d{1,3}(?:\.\d)?)%/); if (pm) job.progress = Math.min(100, Math.round(parseFloat(pm[1]))); });
       await new Promise((res2) => { proc2.on("error", (e) => { job.error = e.message; res2(); }); proc2.on("close", (code) => { clearTimeout(timer2); clearInterval(stall2); job.proc = null; job.code = code; job.stderr = stderr; res2(); }); });
