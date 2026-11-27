@@ -1,0 +1,12 @@
+const assert = require("assert");
+const L = require("./live");
+const { friendlyError } = require("./friendly");
+assert(L.isTikTokLiveUrl("https://www.tiktok.com/@user.name/live"));
+assert(L.isTikTokLiveUrl("https://tiktok.com/@a/live/"));
+assert(!L.isTikTokLiveUrl("https://www.tiktok.com/@a/video/123"));
+assert(!L.isTikTokLiveUrl("https://evil.com/@a/live"));
+assert(!L.isTikTokLiveUrl("garbage"));
+assert.strictEqual(L.liveCapSeconds(false), 1200);
+assert(L.liveArgs(true).join(" ").includes("-t 2400"));
+assert(/isn't live/.test(friendlyError("ERROR: [tiktok:live] x: The channel is not currently live")));
+console.log("live ok");

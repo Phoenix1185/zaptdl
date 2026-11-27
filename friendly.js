@@ -7,6 +7,7 @@ const RULES = [
   [/geo|not available in your country|blocked in your/i, "🌍 That one is blocked in the region my server is in."],
   [/429|too many requests|rate.?limit|try again later/i, "⏳ The platform is rate limiting me right now. Try again in a few minutes."],
   [/no video|no media|there is no video|does not contain any video/i, "🖼️ I couldn't find a video in that link."],
+  [/not currently live|channel is not live|is not live|user is offline/i, "📴 That TikTok account isn't live right now. Send the link again while they're live."],
   [/live (event|stream)|premieres? in|is upcoming/i, "📡 That's a live or upcoming stream. Try again once it's finished."],
   [/unable to extract|please report this issue|yt-dlp -u|extractor|unable to download|http error 5|timed out|timeout/i, "⚠️ I couldn't read that link right now. The platform may have changed something. Try again later."],
 ];
