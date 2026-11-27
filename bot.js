@@ -840,8 +840,15 @@ function isTikTokUrl(u) {
 }
 
 const LIVE = require("./live");
-function runYtdlp(job) {
+async function runYtdlp(job) {
   const base = path.join(os.tmpdir(), "zapt_" + job.id);
+  // tiktok short links (vt/vm.tiktok.com) hide the real route; resolve one
+  // before the live check so raw short LIVE urls get the capped ffmpeg
+  // args. failure to resolve keeps the original url (non-live route);
+  // yt-dlp still handles the redirect on its own.
+  let dlUrl = job.url;
+  try { dlUrl = await LIVE.resolveTikTokUrl(job.url); } catch (e) { dlUrl = job.url; }
+  const isLive = LIVE.isTikTokLiveUrl(dlUrl);
   if (job.quality === "audio") {
     const cookiesPath = isTikTokUrl(job.url) ? "/home/ubuntu/secrets/tiktok_cookies_zapt.txt" : path.join(__dirname, "yt.cookies.txt");
     const args = AUDIO.audioYtdlpArgs(job, base, cookiesPath);
@@ -874,7 +881,7 @@ function runYtdlp(job) {
     "--print-to-file", "%(description)s", base + "_desc.txt",
     "--print-to-file", "%(upload_date>%Y.%m.%d)s", base + "_date.txt",
     "-o", base + ".%(ext)s", job.url];
-  if (LIVE.isTikTokLiveUrl(job.url)) args.splice(args.length - 3, 0, ...LIVE.liveArgs(job.premium), "--remux-video", "mp4");
+  if (isLive) args.splice(args.length - 3, 0, ...LIVE.liveArgs(job.premium), "--remux-video", "mp4");
   return new Promise((resolve) => {
     let stderr = "";
     let proc;
